@@ -12,7 +12,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import net.egelke.android.eid.model.Address;
 import net.egelke.android.eid.model.Identity;
 import net.egelke.android.eid.model.ObjectFactory;
-
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
@@ -101,9 +100,15 @@ public class EidReader implements Closeable {
 		return handler;
 	}
 	
+	public int getDeviceId() {
+		return reader.getDevice().getDeviceId();
+	}
+	
 	
 	@Override
 	public void close() throws IOException {
+		handler = null;
+		reader.setOnStateChangeListener(null);
 		reader.close();
 	}
 	
@@ -167,6 +172,16 @@ public class EidReader implements Closeable {
 		return Drawable.createFromStream(new ByteArrayInputStream(bytes), "idPic");
 	}
 	
+	/*
+	public Collection<X509Certificate> readFileCertTree(int slotNum) throws IOException, CertificateException {
+		CertificateFactory factory = CertificateFactory.getInstance("X.509");
+		
+		byte[] bytes = readFileRaw(slotNum, File.AUTH_CERT);
+		 factory.generateCertificate(new ByteArrayInputStream(bytes));
+		
+		
+	}
+	*/
 	
 	private void selectFile(int slotNum, byte[] cmd) throws ReaderException, Exception {
 		

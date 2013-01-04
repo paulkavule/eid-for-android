@@ -6,10 +6,11 @@
 
     <uses-feature android:name="android.hardware.usb.host" />
 
-    <uses-sdk android:minSdkVersion="12" />
+    <uses-sdk android:minSdkVersion="13" android:targetSdkVersion="15" />
 
     <application
-        android:theme="@android:style/Theme.Light"
+        android:allowBackup="true"
+        android:theme="@android:style/Theme.Holo.Light"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name">
         <activity

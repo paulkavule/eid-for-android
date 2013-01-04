@@ -2,14 +2,16 @@ package net.egelke.android.eid;
 
 import java.io.IOException;
 import java.lang.ref.WeakReference;
-import java.text.DateFormat;
-
-import javax.xml.datatype.DatatypeConstants;
 
 import net.egelke.android.eid.model.Address;
 import net.egelke.android.eid.model.Identity;
-import net.egelke.android.eid.model.SpecialStatus;
+import android.app.ActionBar;
+import android.app.ActionBar.Tab;
 import android.app.Activity;
+import android.app.Fragment;
+import android.app.FragmentTransaction;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.hardware.usb.UsbDevice;
@@ -21,9 +23,6 @@ import android.os.Message;
 import android.os.StrictMode;
 import android.util.Log;
 import android.view.Menu;
-import android.widget.CheckBox;
-import android.widget.ImageView;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.acs.smartcard.Reader;
@@ -48,149 +47,19 @@ public class MainActivity extends Activity {
 		}
 	}
 
-	private class ReadIdentity extends AsyncTask<Integer, Void, Identity> {
-
-		@Override
-		protected Identity doInBackground(Integer... params) {
-			try {
-				return reader.readFileIdentity(params[0]);
-			} catch (Exception e) {
-				Log.e("net.egelke.android.eid", "Reading the identify file failed", e);
-				return null;
-			}
-		}
-
-		@Override
-		protected void onPostExecute(Identity result) {
-			if (result == null)
-				return;
-
-			switch (result.getDocumentType()) {
-			case BELGIAN_CITIZEN:
-				type.setText(R.string.cardtype_citizen);
-				break;
-			case KIDS_CARD:
-				type.setText(R.string.cardtype_kids);
-				break;
-			default:
-				type.setText(result.getDocumentType().name().replace('_', ' '));
-				break;
-			}
-			name.setText(result.getFamilyName());
-			gNames.setText(result.getFirstName() + " " + result.getMiddleNames());
-			birthPlace.setText(result.getPlaceOfbirth());
-			if (result.getDateOfBirth().getMonth() != DatatypeConstants.FIELD_UNDEFINED) {
-				 DateFormat df = DateFormat.getDateInstance();
-				birthDate.setText(df.format(result.getDateOfBirth().toGregorianCalendar().getTime()));
-			} else {
-				birthDate.setText(Integer.toString(result.getDateOfBirth().getYear()));
-			}
-			switch (result.getGender()) {
-			case MALE:
-				sex.setText(R.string.sex_male);
-				break;
-			case FEMALE:
-				sex.setText(R.string.sex_female);
-				break;
-			}
-			natNumber.setText(result.getNationalNumber());
-			nationality.setText(result.getNationality());
-			title.setText(result.getNobleTitle());
-			for (SpecialStatus status : result.getSpecialStatus()) {
-				switch (status) {
-				case WHITE_CANE:
-					status_whiteCane.setChecked(true);
-					break;
-				case YELLOW_CANE:
-					status_yellowCane.setChecked(true);
-					break;
-				case EXTENDED_MINORITY:
-					status_extMinority.setChecked(true);
-					break;
-				}
-			}
-
-		}
-	}
-
-	private class ReadAddress extends AsyncTask<Integer, Void, Address> {
-
-		@Override
-		protected Address doInBackground(Integer... params) {
-			try {
-				return reader.readFileAddress(params[0]);
-			} catch (Exception e) {
-				Log.e("net.egelke.android.eid", "Reading the identify file failed", e);
-				return null;
-			}
-		}
-
-		@Override
-		protected void onPostExecute(Address result) {
-			street.setText(result.getStreetAndNumber());
-			zip.setText(result.getZip());
-			municipality.setText(result.getMunicipality());
-		}
-	}
-
-	private class ReadPhoto extends AsyncTask<Integer, Void, Drawable> {
-
-		@Override
-		protected Drawable doInBackground(Integer... params) {
-			try {
-				return reader.readFilePhoto(params[0]);
-			} catch (Exception e) {
-				Log.e("net.egelke.android.eid", "Reading the photo file failed", e);
-				return null;
-			}
-		}
-
-		@Override
-		protected void onPostExecute(Drawable result) {
-			if (result == null)
-				return;
-
-			photo.setImageDrawable(result);
-		}
-	}
+	private EidHandler handler;
 
 	private UsbDevice usbDevice;
 
 	private EidReader reader;
-
-	private EidHandler handler;
 	
-	private TextView type;
+	Identity id;
+	
+	Address address;
+	
+	Drawable photo;
 
-	private TextView name;
-
-	private TextView gNames;
-
-	private TextView birthPlace;
-
-	private TextView birthDate;
-
-	private TextView sex;
-
-	private TextView natNumber;
-
-	private TextView nationality;
-
-	private TextView title;
-
-	private CheckBox status_whiteCane;
-
-	private CheckBox status_yellowCane;
-
-	private CheckBox status_extMinority;
-
-	private TextView street;
-
-	private TextView zip;
-
-	private TextView municipality;
-
-	private ImageView photo;
+	private BroadcastReceiver usbBcReceiver;
 
 	public void handleMessage(Message msg) {
 		switch (msg.what) {
@@ -208,35 +77,157 @@ public class MainActivity extends Activity {
 			break;
 		}
 	}
+	
+	private class ReadIdentity extends AsyncTask<Integer, Void, Identity> {
+
+		@Override
+		protected Identity doInBackground(Integer... params) {
+			try {
+				return reader.readFileIdentity(params[0]);
+			} catch (Exception e) {
+				Log.e("net.egelke.android.eid", "Reading the identify file failed", e);
+				return null;
+			}
+		}
+
+		@Override
+		protected void onPostExecute(Identity result) {
+			id = result;
+			
+			IdentityFragment idFrag = (IdentityFragment) getFragmentManager().findFragmentByTag("identity");
+			if (idFrag != null && !idFrag.isDetached()) {
+				idFrag.updateId();
+			}
+		}
+	}
+
+	private class ReadAddress extends AsyncTask<Integer, Void, Address> {
+
+		@Override
+		protected Address doInBackground(Integer... params) {
+			try {
+				return reader.readFileAddress(params[0]);
+			} catch (Exception e) {
+				Log.e("net.egelke.android.eid", "Reading the identify file failed", e);
+				return null;
+			}
+		}
+
+		@Override
+		protected void onPostExecute(Address result) {
+			address = result;
+			
+			IdentityFragment idFrag = (IdentityFragment) getFragmentManager().findFragmentByTag("identity");
+			if (idFrag != null && !idFrag.isDetached()) {
+				idFrag.updateAddress();
+			}
+		}
+	}
+
+	private class ReadPhoto extends AsyncTask<Integer, Void, Drawable> {
+
+		@Override
+		protected Drawable doInBackground(Integer... params) {
+			try {
+				return reader.readFilePhoto(params[0]);
+			} catch (Exception e) {
+				Log.e("net.egelke.android.eid", "Reading the photo file failed", e);
+				return null;
+			}
+		}
+
+		@Override
+		protected void onPostExecute(Drawable result) {
+			photo = result;
+			
+			IdentityFragment idFrag = (IdentityFragment) getFragmentManager().findFragmentByTag("identity");
+			if (idFrag != null && !idFrag.isDetached()) {
+				idFrag.updatePhoto();
+			}
+		}
+	}
+
+	public static class TabListener implements ActionBar.TabListener {
+		private final Activity mActivity;
+        private final String mTag;
+        private final Class<? extends Fragment> mClass;
+        private Fragment mFragment;
+
+
+        public TabListener(Activity activity, String tag, Class<? extends Fragment> clz) {
+            mActivity = activity;
+            mTag = tag;
+            mClass = clz;
+
+            // Check to see if we already have a fragment for this tab, probably
+            // from a previously saved state.  If so, deactivate it, because our
+            // initial state is that a tab isn't shown.
+            mFragment = mActivity.getFragmentManager().findFragmentByTag(mTag);
+            if (mFragment != null && !mFragment.isDetached()) {
+                FragmentTransaction ft = mActivity.getFragmentManager().beginTransaction();
+                ft.detach(mFragment);
+                ft.commit();
+            }
+        }
+
+        public void onTabSelected(Tab tab, FragmentTransaction ft) {
+            if (mFragment == null) {
+                mFragment = Fragment.instantiate(mActivity, mClass.getName(), null);
+                ft.add(android.R.id.content, mFragment, mTag);
+            } else {
+                ft.attach(mFragment);
+            }
+        }
+
+        public void onTabUnselected(Tab tab, FragmentTransaction ft) {
+            if (mFragment != null) {
+                ft.detach(mFragment);
+            }
+        }
+
+        public void onTabReselected(Tab tab, FragmentTransaction ft) {
+
+        }
+	}
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+
 		StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder().detectAll().penaltyLog().build());
 		StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder().detectAll().penaltyLog().build());
 
-		super.onCreate(savedInstanceState);
-		setContentView(R.layout.activity_main);
+		ActionBar bar = getActionBar();
+		bar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
+		bar.setDisplayOptions(0, ActionBar.DISPLAY_SHOW_TITLE);
+
+		bar.addTab(bar.newTab().setText(R.string.identity).setTabListener(new TabListener(this, "identity", IdentityFragment.class)));
+		bar.addTab(bar.newTab().setText(R.string.certificates).setTabListener(new TabListener(this, "certificate", CertificateFragment.class)));
 
 		Intent intent = getIntent();
 
 		handler = new EidHandler(this);
 		usbDevice = (UsbDevice) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-		type = (TextView) this.findViewById(R.id.idType);
-		name = (TextView) this.findViewById(R.id.name);
-		gNames = (TextView) this.findViewById(R.id.gNames);
-		birthPlace = (TextView) this.findViewById(R.id.birthPlace);
-		birthDate = (TextView) this.findViewById(R.id.birthDate);
-		sex = (TextView) this.findViewById(R.id.sex);
-		natNumber = (TextView) this.findViewById(R.id.natNumber);
-		nationality = (TextView) this.findViewById(R.id.nationality);
-		title = (TextView) this.findViewById(R.id.title);
-		status_whiteCane = (CheckBox) this.findViewById(R.id.status_whiteCane);
-		status_yellowCane = (CheckBox) this.findViewById(R.id.status_yellowCane);
-		status_extMinority = (CheckBox) this.findViewById(R.id.status_extMinority);
-		street = (TextView) this.findViewById(R.id.street);
-		zip = (TextView) this.findViewById(R.id.zip);
-		municipality = (TextView) this.findViewById(R.id.municipality);
-		photo = (ImageView) this.findViewById(R.id.photo);
+		if (usbDevice != null) {
+			usbBcReceiver = new BroadcastReceiver() {
+				public void onReceive(Context context, Intent intent) {
+					String action = intent.getAction();
+
+					if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
+						Toast.makeText(MainActivity.this.getApplicationContext(), "eID reader removed", Toast.LENGTH_SHORT).show();
+						//TODO:check if same device
+						 UsbDevice device = (UsbDevice)intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+						if (reader != null && device != null && device.getDeviceId() == reader.getDeviceId()) {
+							try {
+								reader.close();
+							} catch (IOException e) {
+								Log.w("net.egelke.android.eid", "Failed to close the reader", e);
+							}
+						}
+					}
+				}
+			};
+		}
 	}
 
 	@Override
@@ -244,19 +235,19 @@ public class MainActivity extends Activity {
 		getMenuInflater().inflate(R.menu.activity_main, menu);
 		return true;
 	}
-
+	
 	@Override
-	protected void onStart() {
-		super.onStart();
-
+	protected void onResume() {
+		super.onResume();
+		
 		if (usbDevice != null) {
 			reader = new EidReader(this, usbDevice);
 			reader.setStateNotifier(handler);
 		}
 	}
-
+	
 	@Override
-	protected void onStop() {
+	protected void onPause() {
 		try {
 			if (reader != null) {
 				reader.close();
@@ -265,7 +256,8 @@ public class MainActivity extends Activity {
 		} catch (IOException e) {
 			Log.w("net.egelke.android.eid", "could not close the eID reader", e);
 		}
-		super.onStop();
+		
+		super.onPause();
 	}
 
 }

@@ -5,13 +5,12 @@ import java.lang.ref.WeakReference;
 
 import net.egelke.android.eid.model.Address;
 import net.egelke.android.eid.model.Identity;
+import android.R.menu;
 import android.app.ActionBar;
 import android.app.ActionBar.Tab;
 import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.hardware.usb.UsbDevice;
@@ -23,6 +22,7 @@ import android.os.Message;
 import android.os.StrictMode;
 import android.util.Log;
 import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.Toast;
 
 import com.acs.smartcard.Reader;
@@ -53,13 +53,13 @@ public class MainActivity extends Activity {
 
 	private EidReader reader;
 	
+	private MenuItem usbMenuItem;
+	
 	Identity id;
 	
 	Address address;
 	
 	Drawable photo;
-
-	private BroadcastReceiver usbBcReceiver;
 
 	public void handleMessage(Message msg) {
 		switch (msg.what) {
@@ -85,7 +85,7 @@ public class MainActivity extends Activity {
 			try {
 				return reader.readFileIdentity(params[0]);
 			} catch (Exception e) {
-				Log.e("net.egelke.android.eid", "Reading the identify file failed", e);
+				Log.w("net.egelke.android.eid", "Reading the identify file failed", e);
 				return null;
 			}
 		}
@@ -108,7 +108,7 @@ public class MainActivity extends Activity {
 			try {
 				return reader.readFileAddress(params[0]);
 			} catch (Exception e) {
-				Log.e("net.egelke.android.eid", "Reading the identify file failed", e);
+				Log.w("net.egelke.android.eid", "Reading the identify file failed", e);
 				return null;
 			}
 		}
@@ -131,7 +131,7 @@ public class MainActivity extends Activity {
 			try {
 				return reader.readFilePhoto(params[0]);
 			} catch (Exception e) {
-				Log.e("net.egelke.android.eid", "Reading the photo file failed", e);
+				Log.w("net.egelke.android.eid", "Reading the photo file failed", e);
 				return null;
 			}
 		}
@@ -193,6 +193,9 @@ public class MainActivity extends Activity {
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		
+		Intent intent = getIntent();
+		Log.d("net.egelke.android.eid", "creating a new main activity:" + this.hashCode() + ", with intend " + intent.getAction());
 
 		StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder().detectAll().penaltyLog().build());
 		StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder().detectAll().penaltyLog().build());
@@ -204,60 +207,131 @@ public class MainActivity extends Activity {
 		bar.addTab(bar.newTab().setText(R.string.identity).setTabListener(new TabListener(this, "identity", IdentityFragment.class)));
 		bar.addTab(bar.newTab().setText(R.string.certificates).setTabListener(new TabListener(this, "certificate", CertificateFragment.class)));
 
-		Intent intent = getIntent();
-
-		handler = new EidHandler(this);
-		usbDevice = (UsbDevice) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-		if (usbDevice != null) {
-			usbBcReceiver = new BroadcastReceiver() {
-				public void onReceive(Context context, Intent intent) {
-					String action = intent.getAction();
-
-					if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
-						Toast.makeText(MainActivity.this.getApplicationContext(), "eID reader removed", Toast.LENGTH_SHORT).show();
-						//TODO:check if same device
-						 UsbDevice device = (UsbDevice)intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-						if (reader != null && device != null && device.getDeviceId() == reader.getDeviceId()) {
-							try {
-								reader.close();
-							} catch (IOException e) {
-								Log.w("net.egelke.android.eid", "Failed to close the reader", e);
-							}
-						}
-					}
-				}
-			};
+		if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(intent.getAction())) {
+			handler = new EidHandler(this);
+			usbDevice = (UsbDevice) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
 		}
 	}
 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		getMenuInflater().inflate(R.menu.activity_main, menu);
+		
+		Log.d("net.egelke.android.eid", "creating optoins menu:" + this.hashCode());
+		this.usbMenuItem = menu.findItem(R.id.menu_usb);
+		
+		if (usbMenuItem != null) {
+			if (this.reader != null) {
+				usbMenuItem.setIcon(R.drawable.ic_usb_connected);
+			} else if (this.usbDevice != null) {
+				usbMenuItem.setIcon(R.drawable.ic_usb_attached);
+			} else {
+				usbMenuItem.setIcon(R.drawable.ic_usb_detached);
+			}
+		}
+		
 		return true;
+	}
+	
+	@Override
+	protected void onStart() {
+		super.onStart();
+		
+		Log.d("net.egelke.android.eid", "staring main activity:" + this.hashCode());
+	}
+	
+	@Override
+	protected void onRestart() {
+		super.onRestart();
+		
+		Log.d("net.egelke.android.eid", "restaring main activity:" + this.hashCode());
 	}
 	
 	@Override
 	protected void onResume() {
 		super.onResume();
 		
-		if (usbDevice != null) {
-			reader = new EidReader(this, usbDevice);
-			reader.setStateNotifier(handler);
-		}
+		Log.d("net.egelke.android.eid", "resuming main activity:" + this.hashCode());
+		connect();
 	}
 	
 	@Override
 	protected void onPause() {
+		Log.d("net.egelke.android.eid", "pausing main activity:" + this.hashCode());
+		
+		diconnect();	
+		super.onPause();
+	}
+	
+	@Override
+	protected void onStop() {
+		Log.d("net.egelke.android.eid", "stopping main activity:" + this.hashCode());
+		
+		super.onStop();
+	}
+	
+	@Override
+	protected void onDestroy() {
+		Log.d("net.egelke.android.eid", "destroying main activity:" + this.hashCode());
+		
+		super.onDestroy();
+	}
+	
+	private void attach() {
+		
+	}
+	
+	private void connect() {
+		if (usbDevice != null) {
+			Log.d("net.egelke.android.eid", "USB device (still present)");
+			try {
+				reader = new EidReader(this, usbDevice);
+				reader.setStateNotifier(handler);
+				if (usbMenuItem != null) {
+					usbMenuItem.setIcon(R.drawable.ic_usb_connected);
+					usbMenuItem.setEnabled(true);
+				}
+			} catch (Exception e) {
+				Log.w("net.egelke.android.eid", "Could not user USB device as eID reader", e);
+				if (usbMenuItem != null) {
+					usbMenuItem.setIcon(R.drawable.ic_usb_detached);
+				}
+				usbDevice = null;
+			}
+		}
+	}
+	
+	private void diconnect() {
 		try {
 			if (reader != null) {
 				reader.close();
 				reader = null;
 			}
+			if (usbMenuItem != null) {
+				usbMenuItem.setIcon(R.drawable.ic_usb_attached);
+			}
 		} catch (IOException e) {
 			Log.w("net.egelke.android.eid", "could not close the eID reader", e);
 		}
-		
-		super.onPause();
+
 	}
 
+	
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		switch (item.getItemId()) {
+		case R.id.menu_usb:
+			Log.d("net.egelke.android.eid", "toggle USB");
+			if (reader != null) {
+				diconnect();
+			} else if (usbDevice != null) {
+				connect();
+			} else {
+				Toast.makeText(this.getApplicationContext(), "Sorry, can't select an USB device manually (yet)", Toast.LENGTH_LONG).show();
+			}
+			return true;
+		default:
+			return super.onOptionsItemSelected(item);
+		}
+	}
 }

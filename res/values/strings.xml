@@ -3,6 +3,7 @@
 
     <string name="app_name">eID Viewer</string>
     <string name="menu_settings">Settings</string>
+    <string name="menu_usb">USB</string>
     <string name="photoDesc">eID Photo</string>
     <string name="name">Name</string>
     <string name="gNames">Given Names</string>
@@ -17,9 +18,7 @@
     <string name="municipality">Municipality</string>
     <string name="sex">Sex</string>
     <string name="identity">identify</string>
-    <string name="identity_short">id</string>
     <string name="certificates">certificates</string>
-    <string name="certificates_short">certs</string>
     <string name="cardtype_citizen">IDENTITY CARD</string>
 	<string name="cardtype_kids">KIDS CARD</string>
 	<string name="sex_male">Male</string>

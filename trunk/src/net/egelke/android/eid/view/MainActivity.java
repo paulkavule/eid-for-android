@@ -1,10 +1,13 @@
-package net.egelke.android.eid;
+package net.egelke.android.eid.view;
 
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 
+import net.egelke.android.eid.EidReader;
 import net.egelke.android.eid.model.Address;
 import net.egelke.android.eid.model.Identity;
 import android.app.ActionBar;
@@ -168,25 +171,33 @@ public class MainActivity extends Activity {
 		}
 	}
 	
-	private class ReadCerts extends AsyncTask<Integer, Void, List<X509Certificate>> {
+	private class ReadCerts extends AsyncTask<Integer, X509Certificate, Void> {
 		
 		@Override
-		protected List<X509Certificate> doInBackground(Integer... params) {
+		protected Void doInBackground(Integer... params) {
 			try {
-				return reader.readFileCerts(params[0]);
+				this.publishProgress();
+				certs = new LinkedList<X509Certificate>();
+				for(X509Certificate cert : reader.readFileCerts(params[0])) {
+					certs.add(cert); //we keep it as "cache"
+					this.publishProgress(cert); //we display it immediately
+				}
+				return null;
 			} catch (Exception e) {
 				Log.w("net.egelke.android.eid", "Reading the photo file failed", e);
 				return null;
 			}
 		}
-
+		
 		@Override
-		protected void onPostExecute(List<X509Certificate> result) {
-			certs = result;
-			
+		protected void onProgressUpdate(X509Certificate... values) {
 			CertificateFragment certFrag = (CertificateFragment) getFragmentManager().findFragmentByTag("certificate");
-			if (certFrag != null && !certFrag.isDetached()) {
-				certFrag.updateCertificates();
+			if (certFrag != null ) {
+				if (values.length == 0) {
+					certFrag.clearCertificates();
+				} else {
+					certFrag.addCertificates(Arrays.asList(values));
+				}
 			}
 		}
 	}

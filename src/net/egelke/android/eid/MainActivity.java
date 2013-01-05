@@ -5,7 +5,6 @@ import java.lang.ref.WeakReference;
 
 import net.egelke.android.eid.model.Address;
 import net.egelke.android.eid.model.Identity;
-import android.R.menu;
 import android.app.ActionBar;
 import android.app.ActionBar.Tab;
 import android.app.Activity;
@@ -97,6 +96,10 @@ public class MainActivity extends Activity {
 			IdentityFragment idFrag = (IdentityFragment) getFragmentManager().findFragmentByTag("identity");
 			if (idFrag != null && !idFrag.isDetached()) {
 				idFrag.updateId();
+			}
+			CardFragment cardFrag = (CardFragment) getFragmentManager().findFragmentByTag("card");
+			if (cardFrag != null && !cardFrag.isDetached()) {
+				cardFrag.updateId();
 			}
 		}
 	}
@@ -205,6 +208,7 @@ public class MainActivity extends Activity {
 		bar.setDisplayOptions(0, ActionBar.DISPLAY_SHOW_TITLE);
 
 		bar.addTab(bar.newTab().setText(R.string.identity).setTabListener(new TabListener(this, "identity", IdentityFragment.class)));
+		bar.addTab(bar.newTab().setText(R.string.card).setTabListener(new TabListener(this, "card", CardFragment.class)));
 		bar.addTab(bar.newTab().setText(R.string.certificates).setTabListener(new TabListener(this, "certificate", CertificateFragment.class)));
 
 		if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(intent.getAction())) {
@@ -309,6 +313,8 @@ public class MainActivity extends Activity {
 			}
 			if (usbMenuItem != null) {
 				usbMenuItem.setIcon(R.drawable.ic_usb_attached);
+			} else {
+				usbMenuItem.setIcon(R.drawable.ic_usb_detached);
 			}
 		} catch (IOException e) {
 			Log.w("net.egelke.android.eid", "could not close the eID reader", e);

@@ -1,4 +1,4 @@
-package net.egelke.android.eid;
+package net.egelke.android.eid.view;
 
 import java.text.DateFormat;
 

@@ -1,7 +1,7 @@
-package net.egelke.android.eid;
+package net.egelke.android.eid.view;
 
 import java.security.cert.X509Certificate;
-import java.util.List;
+import java.util.Collection;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -62,9 +62,9 @@ public class CertificateFragment extends Fragment {
 		}
 	}
 	
-	CertArrayAdapter certsAdapter;
+	private CertArrayAdapter certsAdapter;
 	
-	ListView certs;
+	private ListView certs;
 	
 	@Override
 	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -76,25 +76,26 @@ public class CertificateFragment extends Fragment {
 		}
 		
 		certsAdapter = new CertArrayAdapter(getActivity(), R.layout.certificates_item, R.id.certificateItem);
+		if (((MainActivity) getActivity()).certs != null) {
+			certsAdapter.addAll(((MainActivity) getActivity()).certs);
+		}
 		
 		certs = (ListView) v.findViewById(R.id.certificates);
 		certs.setAdapter(certsAdapter);
 
 		return v;
 	}
-
-	@Override
-	public void onResume() {
-		super.onResume();
-		updateCertificates();
+	
+	public void clearCertificates() {
+		certsAdapter.clear();
+		if (!this.isDetached()) {
+			certsAdapter.notifyDataSetChanged();
+		}
 	}
 	
-	public void updateCertificates() {
-		if (((MainActivity) getActivity()).certs != null) {
-			List<X509Certificate> certs = ((MainActivity) getActivity()).certs;
-			
-			certsAdapter.clear();
-			certsAdapter.addAll(certs);
+	public void addCertificates(Collection<X509Certificate> certs) {
+		certsAdapter.addAll(certs);
+		if (!this.isDetached()) {
 			certsAdapter.notifyDataSetChanged();
 		}
 	}

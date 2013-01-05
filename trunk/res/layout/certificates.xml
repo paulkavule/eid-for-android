@@ -36,7 +36,7 @@
             <TableRow
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" >
-                
+
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -48,13 +48,14 @@
                     android:id="@+id/certValidFrom"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_margin="@dimen/padding_small">
+                    android:layout_margin="@dimen/padding_small" >
                 </TextView>
             </TableRow>
+
             <TableRow
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" >
-                
+
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -66,10 +67,100 @@
                     android:id="@+id/certValidTo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_margin="@dimen/padding_small">
+                    android:layout_margin="@dimen/padding_small" >
                 </TextView>
             </TableRow>
-            
+
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" >
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="@dimen/padding_small"
+                    android:text="@string/usage" >
+                </TextView>
+                
+                <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" >
+
+                <CheckBox
+                    android:id="@+id/usage_digitalSignature"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:text="@string/usage_digitalSignature"
+                    android:textAppearance="?android:attr/textAppearanceSmall" />
+                
+                <CheckBox
+                    android:id="@+id/usage_nonRepudiation"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:text="@string/usage_nonRepudiation"
+                    android:textAppearance="?android:attr/textAppearanceSmall" />
+                
+                <CheckBox
+                    android:id="@+id/usage_keyEncipherment"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:text="@string/usage_keyEncipherment"
+                    android:textAppearance="?android:attr/textAppearanceSmall" />
+                
+                <CheckBox
+                    android:id="@+id/usage_dataEncipherment"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:text="@string/usage_dataEncipherment"
+                    android:textAppearance="?android:attr/textAppearanceSmall" />
+                
+                <CheckBox
+                    android:id="@+id/usage_keyAgreement"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:text="@string/usage_keyAgreement"
+                    android:textAppearance="?android:attr/textAppearanceSmall" />
+                
+                <CheckBox
+                    android:id="@+id/usage_keyCertSign"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:text="@string/usage_keyCertSign"
+                    android:textAppearance="?android:attr/textAppearanceSmall" />
+                
+                <CheckBox
+                    android:id="@+id/usage_cRLSign"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:text="@string/usage_cRLSign"
+                    android:textAppearance="?android:attr/textAppearanceSmall" />
+                
+                <CheckBox
+                    android:id="@+id/usage_encipherOnly"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:text="@string/usage_encipherOnly"
+                    android:textAppearance="?android:attr/textAppearanceSmall" />
+                
+                <CheckBox
+                    android:id="@+id/usage_decipherOnly"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:text="@string/usage_decipherOnly"
+                    android:textAppearance="?android:attr/textAppearanceSmall" />
+                
+                </LinearLayout>
+            </TableRow>
         </TableLayout>
 
         <Button
@@ -78,7 +169,6 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
             android:text="@string/verifyOCSP" />
-
     </LinearLayout>
 
 </LinearLayout>

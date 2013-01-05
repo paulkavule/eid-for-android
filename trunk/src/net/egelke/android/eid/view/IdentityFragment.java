@@ -122,6 +122,9 @@ public class IdentityFragment extends Fragment {
 			natNumber.setText(result.getNationalNumber());
 			nationality.setText(result.getNationality());
 			title.setText(result.getNobleTitle());
+			status_whiteCane.setChecked(false);
+			status_yellowCane.setChecked(false);
+			status_extMinority.setChecked(false);
 			for (SpecialStatus status : result.getSpecialStatus()) {
 				switch (status) {
 				case WHITE_CANE:

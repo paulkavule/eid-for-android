@@ -210,6 +210,10 @@ public class MainActivity extends Activity {
 		bar.addTab(bar.newTab().setText(R.string.identity).setTabListener(new TabListener(this, "identity", IdentityFragment.class)));
 		bar.addTab(bar.newTab().setText(R.string.card).setTabListener(new TabListener(this, "card", CardFragment.class)));
 		bar.addTab(bar.newTab().setText(R.string.certificates).setTabListener(new TabListener(this, "certificate", CertificateFragment.class)));
+		
+		if (savedInstanceState != null) {
+            bar.setSelectedNavigationItem(savedInstanceState.getInt("tab", 0));
+        }
 
 		if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(intent.getAction())) {
 			handler = new EidHandler(this);
@@ -236,6 +240,12 @@ public class MainActivity extends Activity {
 		
 		return true;
 	}
+	
+	@Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putInt("tab", getActionBar().getSelectedNavigationIndex());
+    }
 	
 	@Override
 	protected void onStart() {

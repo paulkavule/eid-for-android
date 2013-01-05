@@ -171,7 +171,7 @@ public class ObjectFactory {
 		final int day = Integer.parseInt(dateStr.substring(0, 2));
 		final int month = Integer.parseInt(dateStr.substring(3, 5));
 		final int year = Integer.parseInt(dateStr.substring(6));
-		return new GregorianCalendar(year, month - 1, day);
+		return new GregorianCalendar(year, month -1, day);
 	}
 
 	private XMLGregorianCalendar toXmlCalendar(final byte[] value) {
@@ -221,7 +221,7 @@ public class ObjectFactory {
 			final String[] monthNames = MONTHS[monthIdx];
 			for (String monthName : monthNames) {
 				if (monthName.equals(monthStr)) {
-					return monthIdx;
+					return monthIdx + 1;
 				}
 			}
 		}

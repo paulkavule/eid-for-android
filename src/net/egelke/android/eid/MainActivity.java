@@ -13,7 +13,6 @@ import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
 import android.content.Intent;
-import android.graphics.drawable.Drawable;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.AsyncTask;
@@ -62,7 +61,7 @@ public class MainActivity extends Activity {
 	
 	Address address;
 	
-	Drawable photo;
+	byte[] photo;
 	
 	List<X509Certificate> certs;
 
@@ -83,6 +82,17 @@ public class MainActivity extends Activity {
 			Toast.makeText(this.getApplicationContext(), "Unknown status change", Toast.LENGTH_SHORT).show();
 			break;
 		}
+	}
+	
+	private static class State {
+		Identity id;
+		
+		Address address;
+		
+		byte[] photo;
+		
+		List<X509Certificate> certs;
+		
 	}
 	
 	private class ReadIdentity extends AsyncTask<Integer, Void, Identity> {
@@ -135,12 +145,12 @@ public class MainActivity extends Activity {
 		}
 	}
 
-	private class ReadPhoto extends AsyncTask<Integer, Void, Drawable> {
+	private class ReadPhoto extends AsyncTask<Integer, Void, byte[]> {
 
 		@Override
-		protected Drawable doInBackground(Integer... params) {
+		protected byte[] doInBackground(Integer... params) {
 			try {
-				return reader.readFilePhoto(params[0]);
+				return reader.readFileRaw(params[0], EidReader.File.PHOTO);
 			} catch (Exception e) {
 				Log.w("net.egelke.android.eid", "Reading the photo file failed", e);
 				return null;
@@ -148,7 +158,7 @@ public class MainActivity extends Activity {
 		}
 
 		@Override
-		protected void onPostExecute(Drawable result) {
+		protected void onPostExecute(byte[] result) {
 			photo = result;
 			
 			IdentityFragment idFrag = (IdentityFragment) getFragmentManager().findFragmentByTag("identity");
@@ -234,6 +244,7 @@ public class MainActivity extends Activity {
 		StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder().detectAll().penaltyLog().build());
 		StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder().detectAll().penaltyLog().build());
 
+		//Create the action bar
 		ActionBar bar = getActionBar();
 		bar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
 		bar.setDisplayOptions(0, ActionBar.DISPLAY_SHOW_TITLE);
@@ -242,13 +253,24 @@ public class MainActivity extends Activity {
 		bar.addTab(bar.newTab().setText(R.string.card).setTabListener(new TabListener(this, "card", CardFragment.class)));
 		bar.addTab(bar.newTab().setText(R.string.certificates).setTabListener(new TabListener(this, "certificate", CertificateFragment.class)));
 		
+		//In case of a config change, restore the state
+		State state = (State) getLastNonConfigurationInstance();
+	    if (state != null) {
+	        this.id = state.id;
+	        this.address = state.address;
+	        this.photo = state.photo;
+	        this.certs = state.certs;
+	    }
+		
+	    //Restore the state in other cases
 		if (savedInstanceState != null) {
             bar.setSelectedNavigationItem(savedInstanceState.getInt("tab", 0));
             userConnected = savedInstanceState.getBoolean("connected", true);
         } else {
         	userConnected = true;
         }
-
+		
+		//In case 
 		if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(intent.getAction())) {
 			handler = new EidHandler(this);
 			usbDevice = (UsbDevice) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
@@ -281,6 +303,17 @@ public class MainActivity extends Activity {
         outState.putInt("tab", getActionBar().getSelectedNavigationIndex());
         outState.putBoolean("connected", userConnected);
     }
+	
+	@Override
+	public Object onRetainNonConfigurationInstance() {
+		State state = new State();
+		state.id = this.id;
+		state.address = this.address;
+		state.photo = this.photo;
+		state.certs = this.certs;
+		
+		return state;
+	}
 	
 	@Override
 	protected void onResume() {

@@ -1,5 +1,6 @@
 package net.egelke.android.eid;
 
+import java.io.ByteArrayInputStream;
 import java.text.DateFormat;
 
 import javax.xml.datatype.DatatypeConstants;
@@ -8,6 +9,7 @@ import net.egelke.android.eid.model.Address;
 import net.egelke.android.eid.model.Identity;
 import net.egelke.android.eid.model.SpecialStatus;
 import android.app.Fragment;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -149,7 +151,7 @@ public class IdentityFragment extends Fragment {
 	public void updatePhoto() {
 		if (((MainActivity) getActivity()).photo != null) {
 			
-			photo.setImageDrawable(((MainActivity) getActivity()).photo);
+			photo.setImageDrawable(Drawable.createFromStream(new ByteArrayInputStream(((MainActivity) getActivity()).photo), "idPic"));
 		}
 	}
 	

@@ -22,6 +22,7 @@
     <string name="chipnr">Chip number</string>
     <string name="validFrom">Valid from</string>
     <string name="validTo">Valid until</string>
+    <string name="usage">Usages</string>
     <string name="verifyPin">Verify PIN</string>
     <string name="verifyOCSP">check revocation status</string>
     <string name="identity">identity</string>
@@ -34,4 +35,13 @@
     <string name="status_whiteCane">white cane</string>
     <string name="status_yellowCane">yellow cane</string>
     <string name="status_extMinority">extended minority</string>
+    <string name="usage_digitalSignature">digital signature</string>
+    <string name="usage_nonRepudiation">non repudiation</string>
+    <string name="usage_keyEncipherment">key encipherment</string>
+    <string name="usage_dataEncipherment">data encipherment</string>
+    <string name="usage_keyAgreement">key agreement</string>
+    <string name="usage_keyCertSign">certificate signing</string>
+    <string name="usage_cRLSign">CRL signing</string>
+    <string name="usage_encipherOnly">encipher only</string>
+    <string name="usage_decipherOnly">decipher only</string>
 </resources>

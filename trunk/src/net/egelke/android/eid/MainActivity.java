@@ -2,6 +2,8 @@ package net.egelke.android.eid;
 
 import java.io.IOException;
 import java.lang.ref.WeakReference;
+import java.security.cert.X509Certificate;
+import java.util.List;
 
 import net.egelke.android.eid.model.Address;
 import net.egelke.android.eid.model.Identity;
@@ -54,19 +56,25 @@ public class MainActivity extends Activity {
 	
 	private MenuItem usbMenuItem;
 	
+	private boolean userConnected;
+	
 	Identity id;
 	
 	Address address;
 	
 	Drawable photo;
+	
+	List<X509Certificate> certs;
 
 	public void handleMessage(Message msg) {
 		switch (msg.what) {
 		case Reader.CARD_PRESENT:
 			Toast.makeText(this.getApplicationContext(), "eID card inserted", Toast.LENGTH_SHORT).show();
+			//TODO:rework to cursor loader that used content provider of eID (http://developer.android.com/guide/components/loaders.html)
 			new ReadIdentity().execute(msg.arg1);
 			new ReadAddress().execute(msg.arg1);
 			new ReadPhoto().execute(msg.arg1);
+			new ReadCerts().execute(msg.arg1);
 			break;
 		case Reader.CARD_ABSENT:
 			Toast.makeText(this.getApplicationContext(), "eID card removed", Toast.LENGTH_SHORT).show();
@@ -149,6 +157,29 @@ public class MainActivity extends Activity {
 			}
 		}
 	}
+	
+	private class ReadCerts extends AsyncTask<Integer, Void, List<X509Certificate>> {
+		
+		@Override
+		protected List<X509Certificate> doInBackground(Integer... params) {
+			try {
+				return reader.readFileCerts(params[0]);
+			} catch (Exception e) {
+				Log.w("net.egelke.android.eid", "Reading the photo file failed", e);
+				return null;
+			}
+		}
+
+		@Override
+		protected void onPostExecute(List<X509Certificate> result) {
+			certs = result;
+			
+			CertificateFragment certFrag = (CertificateFragment) getFragmentManager().findFragmentByTag("certificate");
+			if (certFrag != null && !certFrag.isDetached()) {
+				certFrag.updateCertificates();
+			}
+		}
+	}
 
 	public static class TabListener implements ActionBar.TabListener {
 		private final Activity mActivity;
@@ -213,6 +244,9 @@ public class MainActivity extends Activity {
 		
 		if (savedInstanceState != null) {
             bar.setSelectedNavigationItem(savedInstanceState.getInt("tab", 0));
+            userConnected = savedInstanceState.getBoolean("connected", true);
+        } else {
+        	userConnected = true;
         }
 
 		if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(intent.getAction())) {
@@ -245,28 +279,17 @@ public class MainActivity extends Activity {
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putInt("tab", getActionBar().getSelectedNavigationIndex());
+        outState.putBoolean("connected", userConnected);
     }
-	
-	@Override
-	protected void onStart() {
-		super.onStart();
-		
-		Log.d("net.egelke.android.eid", "staring main activity:" + this.hashCode());
-	}
-	
-	@Override
-	protected void onRestart() {
-		super.onRestart();
-		
-		Log.d("net.egelke.android.eid", "restaring main activity:" + this.hashCode());
-	}
 	
 	@Override
 	protected void onResume() {
 		super.onResume();
 		
 		Log.d("net.egelke.android.eid", "resuming main activity:" + this.hashCode());
-		connect();
+		if (userConnected) {
+			connect();
+		}
 	}
 	
 	@Override
@@ -277,22 +300,8 @@ public class MainActivity extends Activity {
 		super.onPause();
 	}
 	
-	@Override
-	protected void onStop() {
-		Log.d("net.egelke.android.eid", "stopping main activity:" + this.hashCode());
-		
-		super.onStop();
-	}
-	
-	@Override
-	protected void onDestroy() {
-		Log.d("net.egelke.android.eid", "destroying main activity:" + this.hashCode());
-		
-		super.onDestroy();
-	}
-	
 	private void attach() {
-		
+		Toast.makeText(this.getApplicationContext(), "Sorry, can't select an USB device manually (yet)", Toast.LENGTH_LONG).show();
 	}
 	
 	private void connect() {
@@ -339,11 +348,13 @@ public class MainActivity extends Activity {
 		case R.id.menu_usb:
 			Log.d("net.egelke.android.eid", "toggle USB");
 			if (reader != null) {
+				userConnected = false;
 				diconnect();
 			} else if (usbDevice != null) {
+				userConnected = true;
 				connect();
 			} else {
-				Toast.makeText(this.getApplicationContext(), "Sorry, can't select an USB device manually (yet)", Toast.LENGTH_LONG).show();
+				attach();
 			}
 			return true;
 		default:

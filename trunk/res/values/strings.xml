@@ -17,7 +17,15 @@
     <string name="zip">Postal code</string>
     <string name="municipality">Municipality</string>
     <string name="sex">Sex</string>
-    <string name="identity">identify</string>
+    <string name="cardnr">Card number</string>
+    <string name="issuePlace">Place of issue</string>
+    <string name="chipnr">Chip number</string>
+    <string name="validFrom">Valid from</string>
+    <string name="validTo">Valid until</string>
+    <string name="verifyPin">Verify PIN</string>
+    <string name="verifyOCSP">check revocation status</string>
+    <string name="identity">identity</string>
+    <string name="card">card/pin</string>
     <string name="certificates">certificates</string>
     <string name="cardtype_citizen">IDENTITY CARD</string>
 	<string name="cardtype_kids">KIDS CARD</string>

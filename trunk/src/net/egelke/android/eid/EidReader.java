@@ -4,7 +4,12 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.locks.ReentrantLock;
@@ -172,16 +177,25 @@ public class EidReader implements Closeable {
 		return Drawable.createFromStream(new ByteArrayInputStream(bytes), "idPic");
 	}
 	
-	/*
 	public Collection<X509Certificate> readFileCertTree(int slotNum) throws IOException, CertificateException {
+		byte[] bytes;
+		Collection<X509Certificate> retVal = new LinkedList<X509Certificate>();
 		CertificateFactory factory = CertificateFactory.getInstance("X.509");
 		
-		byte[] bytes = readFileRaw(slotNum, File.AUTH_CERT);
-		 factory.generateCertificate(new ByteArrayInputStream(bytes));
+		bytes = readFileRaw(slotNum, File.ROOTCA_CERT);
+		retVal.add((X509Certificate) factory.generateCertificate(new ByteArrayInputStream(bytes)));
 		
+		bytes = readFileRaw(slotNum, File.INTCA_CERT);
+		retVal.add((X509Certificate) factory.generateCertificate(new ByteArrayInputStream(bytes)));
 		
+		bytes = readFileRaw(slotNum, File.AUTH_CERT);
+		factory.generateCertificate(new ByteArrayInputStream(bytes));
+		
+		bytes = readFileRaw(slotNum, File.SIGN_CERT);
+		factory.generateCertificate(new ByteArrayInputStream(bytes));
+		
+		return retVal;
 	}
-	*/
 	
 	private void selectFile(int slotNum, byte[] cmd) throws ReaderException, Exception {
 		

@@ -24,7 +24,7 @@
     <string name="validTo">Valid until</string>
     <string name="usage">Usages</string>
     <string name="verifyPin">Verify PIN</string>
-    <string name="verifyOCSP">check revocation status</string>
+    <string name="verifyOCSP">Verify</string>
     <string name="identity">identity</string>
     <string name="card">card/pin</string>
     <string name="certificates">certificates</string>

@@ -3,19 +3,35 @@ package net.egelke.android.eid.view;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
+import java.security.cert.CertPath;
+import java.security.cert.CertPathBuilder;
+import java.security.cert.CertPathValidator;
+import java.security.cert.CertPathValidatorException;
+import java.security.cert.CertStore;
+import java.security.cert.CertificateFactory;
+import java.security.cert.CollectionCertStoreParameters;
+import java.security.cert.PKIXParameters;
+import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
 import java.text.DateFormat;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.security.auth.x500.X500Principal;
 
-import org.apache.http.message.BufferedHeader;
-
 import android.app.Fragment;
 import android.content.Context;
+import android.content.res.AssetManager;
 import android.content.res.Configuration;
+import android.content.res.Resources;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -24,8 +40,8 @@ import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
-import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.LinearLayout;
 import android.widget.ListView;
@@ -75,6 +91,42 @@ public class CertificateFragment extends Fragment {
 		}
 	}
 	
+	private class Check extends AsyncTask<Void, Void, Boolean> {
+	
+		
+		@Override
+		protected Boolean doInBackground(Void... params) {
+			try {
+				CertificateFactory cf = CertificateFactory.getInstance("X.509");
+				CertPath path = cf.generateCertPath(Collections.singletonList(current));
+				
+				CertStore store = CertStore.getInstance("Collection", new CollectionCertStoreParameters(((MainActivity) getActivity()).certs));
+				
+				CertPathValidator validator = CertPathValidator.getInstance("PKIX");
+				Set<TrustAnchor> roots = new HashSet<TrustAnchor>();
+				roots.add(new TrustAnchor((X509Certificate) cf.generateCertificate(getResources().getAssets().open("root.crt")), null));
+				roots.add(new TrustAnchor((X509Certificate) cf.generateCertificate(getResources().getAssets().open("root2.crt")), null));
+				PKIXParameters validateParams = new PKIXParameters(roots);
+				validateParams.setCertStores(Collections.singletonList(store));
+				validateParams.setRevocationEnabled(true);
+				
+				validator.validate(path, validateParams);
+				return true;
+			} catch (CertPathValidatorException e) {
+				Log.i("net.egelke.android.eid", "certificate invalid", e);
+				return false;
+			} catch (Exception e) {
+				Log.e("net.egelke.android.eid", "failed to check the certificate", e);
+				return false;
+			}
+		}
+		
+		@Override
+		protected void onPostExecute(Boolean result) {
+			
+		}
+	}
+	
 	private CertArrayAdapter certsAdapter;
 	
 	private ListView certs;
@@ -95,6 +147,10 @@ public class CertificateFragment extends Fragment {
 	private CheckBox usage_encipherOnly;
 	private CheckBox usage_decipherOnly;
 	
+	private Button check;
+	
+	private X509Certificate current;
+	
 	@Override
 	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 		View v = inflater.inflate(R.layout.certificates, container, false);
@@ -108,6 +164,8 @@ public class CertificateFragment extends Fragment {
 		if (((MainActivity) getActivity()).certs != null) {
 			certsAdapter.addAll(((MainActivity) getActivity()).certs);
 		}
+		
+		getResources().getAssets();
 		
 		subject = (TextView) v.findViewById(R.id.certSubject);
 		from = (TextView) v.findViewById(R.id.certValidFrom);
@@ -127,10 +185,10 @@ public class CertificateFragment extends Fragment {
 
 			@Override
 			public void onItemClick(AdapterView<?> parent, View v, int position, long id) {
-				X509Certificate cert = (X509Certificate) parent.getItemAtPosition(position);
+				current = (X509Certificate) parent.getItemAtPosition(position);
 				
 				DateFormat df = DateFormat.getDateTimeInstance();
-				String subjectValue = cert.getSubjectX500Principal().getName(X500Principal.RFC2253);
+				String subjectValue = current.getSubjectX500Principal().getName(X500Principal.RFC2253);
 				subjectValue = subjectValue.replace(",", "\r\n"); //write line by line
 				StringBuffer subjectWriter = new StringBuffer();
 				try {
@@ -165,22 +223,32 @@ public class CertificateFragment extends Fragment {
 				}
 				
 				subject.setText(subjectWriter.toString());
-				from.setText(df.format(cert.getNotBefore()));
-				to.setText(df.format(cert.getNotAfter()));
+				from.setText(df.format(current.getNotBefore()));
+				to.setText(df.format(current.getNotAfter()));
 				
-				usage_digitalSignature.setChecked(cert.getKeyUsage()[0]);
-				usage_nonRepudiation.setChecked(cert.getKeyUsage()[1]);
-				usage_keyEncipherment.setChecked(cert.getKeyUsage()[2]);
-				usage_dataEncipherment.setChecked(cert.getKeyUsage()[3]);
-				usage_keyAgreement.setChecked(cert.getKeyUsage()[4]);
-				usage_keyCertSign.setChecked(cert.getKeyUsage()[5]);
-				usage_cRLSign.setChecked(cert.getKeyUsage()[6]);
-				usage_encipherOnly.setChecked(cert.getKeyUsage()[7]);
-				usage_decipherOnly.setChecked(cert.getKeyUsage()[8]);
-				
+				usage_digitalSignature.setChecked(current.getKeyUsage()[0]);
+				usage_nonRepudiation.setChecked(current.getKeyUsage()[1]);
+				usage_keyEncipherment.setChecked(current.getKeyUsage()[2]);
+				usage_dataEncipherment.setChecked(current.getKeyUsage()[3]);
+				usage_keyAgreement.setChecked(current.getKeyUsage()[4]);
+				usage_keyCertSign.setChecked(current.getKeyUsage()[5]);
+				usage_cRLSign.setChecked(current.getKeyUsage()[6]);
+				usage_encipherOnly.setChecked(current.getKeyUsage()[7]);
+				usage_decipherOnly.setChecked(current.getKeyUsage()[8]);
 				
 			}
 		});
+		
+		/*
+		check = (Button) v.findViewById(R.id.verifyOcsp);
+		check.setOnClickListener(new OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				new Check().execute();
+			}
+		});
+		*/
+		
 		return v;
 	}
 	

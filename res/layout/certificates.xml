@@ -163,12 +163,14 @@
             </TableRow>
         </TableLayout>
 
+        <!-- 
         <Button
             android:id="@+id/verifyOcsp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
             android:text="@string/verifyOCSP" />
+             -->
     </LinearLayout>
 
 </LinearLayout>

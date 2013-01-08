@@ -176,10 +176,7 @@ public class MainActivity extends Activity {
 		@Override
 		protected Void doInBackground(Integer... params) {
 			try {
-				this.publishProgress();
-				certs = new LinkedList<X509Certificate>();
 				for(X509Certificate cert : reader.readFileCerts(params[0])) {
-					certs.add(cert); //we keep it as "cache"
 					this.publishProgress(cert); //we display it immediately
 				}
 				return null;
@@ -190,14 +187,20 @@ public class MainActivity extends Activity {
 		}
 		
 		@Override
-		protected void onProgressUpdate(X509Certificate... values) {
+		protected void onPreExecute() {
+			certs = new LinkedList<X509Certificate>();
 			CertificateFragment certFrag = (CertificateFragment) getFragmentManager().findFragmentByTag("certificate");
 			if (certFrag != null ) {
-				if (values.length == 0) {
-					certFrag.clearCertificates();
-				} else {
-					certFrag.addCertificates(Arrays.asList(values));
-				}
+				certFrag.clearCertificates();
+			}
+		}
+		
+		@Override
+		protected void onProgressUpdate(X509Certificate... values) {
+			certs.add(values[0]); //we keep it as "cache"
+			CertificateFragment certFrag = (CertificateFragment) getFragmentManager().findFragmentByTag("certificate");
+			if (certFrag != null ) {
+				certFrag.addCertificates(Arrays.asList(values));
 			}
 		}
 	}

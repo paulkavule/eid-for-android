@@ -7,19 +7,15 @@ You need an *USB card-reader of the brand ACS* (Advanced Card Systems Ltd).  It 
 
 Naturally you need to be able to connect the card reader in host mode.  You can't connect your card reader directly to most devices, you need an adapter.  This is the same adapter as you need to connect an external hard-disk or USB stick directly to your Android device.
 
-= Starting and Stopping =
-
-== Starting ==
+= Starting =
 
 You can start the application in 2 different ways:
   * With the icon
   * By connecting a compatible reader
 
-The best way is to connect a compatible reader, then android will ask if you want to use the eID view to use the device.  In the current version, staring the app with the icon can mean you can't access the card-reader if it wasn't connected already.  This will be addressed in future version of the application.
+When you use the icon, you might not have access to the card reader.  Just click the USB icon in the right upper corner to try to connect.
 
-== Stopping ==
-
-Please stop the application or deconnect the card-reader before you remove the card-reader.  It will certainly freeze your device for about a minute or too and can even freeze it completely.  If it happens you can always reboot the device by holding the on/off button of you device.
+When you connect a compatible reader, Android will ask if you want to use the eID View to access it. If you confirm the app will start and your card-reader will be connected.
 
 = detached/attach/connected =
 
@@ -30,20 +26,22 @@ The displayed state isn't necessary the actual state.  The state is only updated
 == detached ==
 http://eid-for-android.googlecode.com/svn/trunk/res/drawable-xhdpi/ic_usb_detached.png
 
-This means the card-reader isn't present or isn't accessible to the application.  It is safe to remove the card-reader if present.
+This means the card-reader isn't present or isn't accessible to the application.
 
-When clicking on the icon, the application will try to attach and become attached).
+When clicking on the icon, the application will try to attach and if that succeeds it will try to connect (and become connected).
+
+When removing the card reader, the app will return to this state.
 
 == attached ==
 http://eid-for-android.googlecode.com/svn/trunk/res/drawable-xhdpi/ic_usb_attached.png
 
-This means the card-reader is accessible to the application but isn't accessed.  It is safe to remove the card-reader if present.
+This means the card-reader is accessible to the application but isn't accessed.
 
 When clicking on the icon, the application will try to connect (and become connected)
 
 == connected ==
 http://eid-for-android.googlecode.com/svn/trunk/res/drawable-xhdpi/ic_usb_connected.png
 
-This means the application is actually connected to the card-reader.  *DO NOT* remove the card-reader at this time.
+This means the application is actually connected to the card-reader.  At this point the app will get notified when a new eID-card is inserted and it will update the content on the screen.
 
-When clicking on the icon, the application will try to deconnect (and become attached)
+When clicking on the icon, the application will try to deconnect (and become attached).

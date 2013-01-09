@@ -1,0 +1,45 @@
+#summary How to use eID for Android
+
+= Requirements =
+This application only works with *Android 3.2 or higher*.  Although you might use it on phones, the app is really targeted to tables.
+
+You need an *USB card-reader of the brand ACS* (Advanced Card Systems Ltd).  It must be a CCID compatible device, which excludes the older ACR38U.  The ACR38U-N1 PocketMate is CCID and in my opinion the best match.
+
+Naturally you need to be able to connect the card reader in host mode.  You can't connect your card reader directly to most devices, you need an adapter.  This is the same adapter as you need to connect an external hard-disk or USB stick directly to your Android device.
+
+= Starting and Stopping =
+
+== Starting ==
+
+You can start the application in 2 different ways:
+  * With the icon
+  * By connecting a compatible reader
+
+The best way is to connect a compatible reader, then android will ask if you want to use the eID view to use the device.  In the current version, staring the app with the icon can mean you can't access the card-reader if it wasn't connected already.  This will be addressed in future version of the application.
+
+== Stopping ==
+
+Please stop the application or deconnect the card-reader before you remove the card-reader.  It will certainly freeze your device for about a minute or too and can even freeze it completely.  If it happens you can always reboot the device by holding the on/off button of you device.
+
+= detached/attach/connected =
+
+The card-reader can be detached, attached or connected.  See the upper right corner to see the (estimated) current state and switch states.
+
+== detached ==
+http://code.google.com/p/eid-for-android/source/browse/trunk/res/drawable-xhdpi/ic_usb_detached.png
+
+This means the card-reader isn't present or isn't accessible to the application.  It is safe to remove the card-reader if present.
+
+When clicking on the icon, the application will try to attach and become attached).
+
+== attached ==
+<yellow>
+
+This means the card-reader is accessible to the application but isn't accessed.  It is safe to remove the card-reader if present.
+
+When clicking on the icon, the application will try to connect (and become connected)
+
+== connected ==
+<green>
+
+When clicking on the icon, the application will try to deconnect (and become attached)

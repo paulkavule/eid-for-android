@@ -26,20 +26,20 @@ Please stop the application or deconnect the card-reader before you remove the c
 The card-reader can be detached, attached or connected.  See the upper right corner to see the (estimated) current state and switch states.
 
 == detached ==
-http://code.google.com/p/eid-for-android/source/browse/trunk/res/drawable-xhdpi/ic_usb_detached.png
+http://eid-for-android.googlecode.com/svn/trunk/res/drawable-xhdpi/ic_usb_detached.png
 
 This means the card-reader isn't present or isn't accessible to the application.  It is safe to remove the card-reader if present.
 
 When clicking on the icon, the application will try to attach and become attached).
 
 == attached ==
-<yellow>
+http://eid-for-android.googlecode.com/svn/trunk/res/drawable-xhdpi/ic_usb_attached.png
 
 This means the card-reader is accessible to the application but isn't accessed.  It is safe to remove the card-reader if present.
 
 When clicking on the icon, the application will try to connect (and become connected)
 
 == connected ==
-<green>
+http://eid-for-android.googlecode.com/svn/trunk/res/drawable-xhdpi/ic_usb_connected.png
 
 When clicking on the icon, the application will try to deconnect (and become attached)

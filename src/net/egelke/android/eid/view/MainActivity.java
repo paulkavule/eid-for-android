@@ -348,7 +348,8 @@ public class MainActivity extends Activity {
 	}
 	
 	private void attach() {
-		Toast.makeText(this.getApplicationContext(), "Sorry, can't select an USB device manually (yet)", Toast.LENGTH_LONG).show();
+		usbMenuItem.setIcon(R.drawable.ic_usb_detached);
+		Toast.makeText(this.getApplicationContext(), "Sorry, can't manually attache a device yet.  Please remove and reconnect the reader instead.", Toast.LENGTH_LONG).show();
 	}
 	
 	private void connect() {

@@ -11,7 +11,7 @@
     <string name="birthDate">Date of birth</string>
     <string name="natNumber">National Number</string>
     <string name="nationality">Nationality</string>
-    <string name="title">Title</string>
+    <string name="title">Noble title</string>
     <string name="specialStatus">Special Status</string>
     <string name="street">Street</string>
     <string name="zip">Postal code</string>
@@ -28,6 +28,7 @@
     <string name="identity">identity</string>
     <string name="card">card/pin</string>
     <string name="certificates">certificates</string>
+    <string name="selectReader">Select your card-reader</string>
     <string name="cardtype_citizen">IDENTITY CARD</string>
 	<string name="cardtype_kids">KIDS CARD</string>
 	<string name="sex_male">Male</string>

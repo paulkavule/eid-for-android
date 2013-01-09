@@ -4,8 +4,10 @@ import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import net.egelke.android.eid.EidReader;
 import net.egelke.android.eid.model.Address;
@@ -15,7 +17,11 @@ import android.app.ActionBar.Tab;
 import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.AsyncTask;
@@ -31,6 +37,8 @@ import android.widget.Toast;
 import com.acs.smartcard.Reader;
 
 public class MainActivity extends Activity {
+	
+	private static final String ACTION_USB_PERMISSION = "net.egelke.android.eid.USB_PERMISSION";
 
 	private static class EidHandler extends Handler {
 		private final WeakReference<MainActivity> selfRef;
@@ -49,10 +57,12 @@ public class MainActivity extends Activity {
 			}
 		}
 	}
+	
+	private UsbDeviceIntentReceiver observer;
 
 	private EidHandler handler;
 
-	private UsbDevice usbDevice;
+	UsbDevice usbDevice;
 
 	private EidReader reader;
 	
@@ -96,6 +106,32 @@ public class MainActivity extends Activity {
 		
 		List<X509Certificate> certs;
 		
+	}
+	
+	private class UsbDeviceIntentReceiver extends BroadcastReceiver {
+
+	    public UsbDeviceIntentReceiver() {	    	
+	        IntentFilter usbFilter = new IntentFilter();
+	        usbFilter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
+	        usbFilter.addAction(ACTION_USB_PERMISSION);
+	        registerReceiver(this, usbFilter);
+	    }
+
+	    @Override public void onReceive(Context context, Intent intent) {
+	    	if (ACTION_USB_PERMISSION.equals(intent.getAction()) && intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+	    		usbDevice = (UsbDevice)intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+	    		if (usbMenuItem != null) {
+					usbMenuItem.setIcon(R.drawable.ic_usb_attached);
+				}
+	    		connect();
+	    	}
+	    	else if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(intent.getAction())) {
+	    		UsbDevice usbDeviceReceived = (UsbDevice)intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+	    		if (usbDevice != null && usbDeviceReceived != null && usbDevice.getDeviceId() == usbDeviceReceived.getDeviceId()) {
+	    			detach();
+	    		}
+	    	}
+	    }
 	}
 	
 	private class ReadIdentity extends AsyncTask<Integer, Void, Identity> {
@@ -257,6 +293,11 @@ public class MainActivity extends Activity {
 
 		StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder().detectAll().penaltyLog().build());
 		StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder().detectAll().penaltyLog().build());
+		
+		//create the observer
+		if (observer == null) {
+			observer = new UsbDeviceIntentReceiver();
+		}
 
 		//Create the action bar
 		ActionBar bar = getActionBar();
@@ -284,9 +325,8 @@ public class MainActivity extends Activity {
         	userConnected = true;
         }
 		
-		//In case 
+		handler = new EidHandler(this);
 		if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(intent.getAction())) {
-			handler = new EidHandler(this);
 			usbDevice = (UsbDevice) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
 		}
 	}
@@ -347,32 +387,75 @@ public class MainActivity extends Activity {
 		super.onPause();
 	}
 	
-	private void attach() {
-		usbMenuItem.setIcon(R.drawable.ic_usb_detached);
-		Toast.makeText(this.getApplicationContext(), "Sorry, can't manually attache a device yet.  Please remove and reconnect the reader instead.", Toast.LENGTH_LONG).show();
+	@Override
+	protected void onDestroy() {
+		super.onDestroy();
+		
+		if (observer != null) {
+			this.unregisterReceiver(observer);
+			observer = null;
+		}
 	}
 	
-	private void connect() {
+	void attach() {
+		if (usbMenuItem != null) {
+			usbMenuItem.setIcon(R.drawable.ic_usb_detached);
+		}
+		UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
+		
+		boolean found = false;
+		Map<String, UsbDevice> deviceList = manager.getDeviceList();
+		Iterator<UsbDevice> deviceIterator = deviceList.values().iterator();
+		while(deviceIterator.hasNext()){
+		    UsbDevice device = deviceIterator.next();
+		    if (device.getVendorId() == 1839) {
+		    	//we request permission for all, see what it gets ;-)
+		    	manager.requestPermission(device, PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0));
+		    	found = true;
+		    }
+		}
+		
+		if (!found)
+			Toast.makeText(this.getApplicationContext(), "No compatible reader found", Toast.LENGTH_SHORT).show();
+	}
+	
+	void detach() {
+		diconnect();
+		usbDevice = null;
+		if (usbMenuItem != null) {
+			usbMenuItem.setIcon(R.drawable.ic_usb_detached);
+		}
+		
+	}
+	
+	void connect() {
 		if (usbDevice != null) {
+			if (usbMenuItem != null) {
+				usbMenuItem.setIcon(R.drawable.ic_usb_attached);
+			}
 			Log.d("net.egelke.android.eid", "USB device (still present)");
 			try {
 				reader = new EidReader(this, usbDevice);
 				reader.setStateNotifier(handler);
 				if (usbMenuItem != null) {
 					usbMenuItem.setIcon(R.drawable.ic_usb_connected);
-					usbMenuItem.setEnabled(true);
 				}
 			} catch (Exception e) {
 				Log.w("net.egelke.android.eid", "Could not user USB device as eID reader", e);
+				Toast.makeText(this.getApplicationContext(), "Could not connect to reader", Toast.LENGTH_SHORT).show();
+				usbDevice = null;
 				if (usbMenuItem != null) {
 					usbMenuItem.setIcon(R.drawable.ic_usb_detached);
 				}
-				usbDevice = null;
+			}
+		} else {
+			if (usbMenuItem != null) {
+				usbMenuItem.setIcon(R.drawable.ic_usb_detached);
 			}
 		}
 	}
 	
-	private void diconnect() {
+	void diconnect() {
 		try {
 			if (reader != null) {
 				reader.close();
@@ -380,13 +463,14 @@ public class MainActivity extends Activity {
 			}
 			if (usbMenuItem != null) {
 				usbMenuItem.setIcon(R.drawable.ic_usb_attached);
-			} else {
-				usbMenuItem.setIcon(R.drawable.ic_usb_detached);
 			}
 		} catch (IOException e) {
 			Log.w("net.egelke.android.eid", "could not close the eID reader", e);
+			usbDevice = null;
+			if (usbMenuItem != null) {
+				usbMenuItem.setIcon(R.drawable.ic_usb_detached);
+			}
 		}
-
 	}
 
 	

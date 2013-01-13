@@ -15,18 +15,21 @@ import net.egelke.android.eid.model.ObjectFactory;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
+import android.hardware.usb.UsbConstants;
 import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbDeviceConnection;
+import android.hardware.usb.UsbEndpoint;
+import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 
-import com.acs.smartcard.Reader;
-import com.acs.smartcard.Reader.OnStateChangeListener;
-import com.acs.smartcard.ReaderException;
-
 //TODO:encapsulate in content provider (http://developer.android.com/guide/topics/providers/content-providers.html)
 public class EidReader implements Closeable {
+	
+	public final static int MSG_CARD_INSERTED = 0;
+	public final static int MSG_CARD_REMOVED = 1;
 	
 	public static enum File {
 		IDENTITY(
@@ -62,35 +65,22 @@ public class EidReader implements Closeable {
 
 	private static final ReentrantLock lock = new ReentrantLock();
 	
-	final private Reader reader;
+	//final private Reader reader;
+	private int sequence;
+	private UsbManager usbManager;
+	private UsbDevice usbDevice;
+	private UsbInterface usbInterface;
+	private UsbDeviceConnection usbConnection;
+	private UsbEndpoint usbInterupt;
+	private UsbEndpoint usbOut;
+	private UsbEndpoint usbIn;
+	private boolean requestClose;
+	private Thread interuptThread;
 	private Handler handler = null;
 	
 	public EidReader(final Activity activity, final UsbDevice device) {
-		UsbManager manager = (UsbManager) activity.getSystemService(Context.USB_SERVICE);
-		this.reader = new Reader(manager);
-		this.reader.open(device);
-		
-		this.reader.setOnStateChangeListener(new OnStateChangeListener() {
-			
-			@Override
-			public void onStateChange(int slotNum, int prevState, int currState) {
-				if (currState == Reader.CARD_PRESENT) {
-					try {
-						reader.power(slotNum, Reader.CARD_WARM_RESET);
-						reader.setProtocol(slotNum, Reader.PROTOCOL_T0 | Reader.PROTOCOL_T1);
-					} catch (final Exception e) {
-						Log.e("net.egelke.android.eid", "Failed listener", e);
-					}
-				}
-				
-				if (handler != null) {
-					Message msg = handler.obtainMessage(currState);
-					msg.arg1 = slotNum;
-					msg.arg2 = prevState;
-					handler.sendMessage(msg);
-				}
-			}
-		});
+		usbManager = (UsbManager) activity.getSystemService(Context.USB_SERVICE);
+		usbDevice = device;
 	}
 	
 	public void setStateNotifier(Handler value) {
@@ -102,17 +92,154 @@ public class EidReader implements Closeable {
 	}
 	
 	public int getDeviceId() {
-		return reader.getDevice().getDeviceId();
+		return usbDevice.getDeviceId();
+	}
+	
+	public void open() throws IOException {
+		if (usbDevice == null) throw new IllegalArgumentException("Device can't be null");
+		for(int i=0; i < usbDevice.getInterfaceCount(); i++) {
+			UsbInterface usbIf = usbDevice.getInterface(i);
+			if (usbIf.getInterfaceClass() == 0x0B 
+					&& usbIf.getInterfaceSubclass() == 0x00 
+					&& usbIf.getInterfaceProtocol() == 0x00) {
+				usbInterface = usbIf;
+			}
+		}
+		if(usbInterface == null) throw new IllegalStateException("The device hasn't a smard card reader");
+	
+		usbConnection = usbManager.openDevice(usbDevice);
+		usbConnection.claimInterface(usbInterface, true);
+		
+		//Get the interfaces
+		for (int i=0; i < usbInterface.getEndpointCount(); i++) {
+			UsbEndpoint usbEp = usbInterface.getEndpoint(i);
+			if (usbEp.getDirection() == UsbConstants.USB_DIR_IN && usbEp.getType() == UsbConstants.USB_ENDPOINT_XFER_INT && usbEp.getAttributes() == 0x03) {
+				usbInterupt = usbEp;
+			}
+			if (usbEp.getDirection() == UsbConstants.USB_DIR_OUT && usbEp.getType() == UsbConstants.USB_ENDPOINT_XFER_BULK && usbEp.getAttributes() == 0x02) {
+				usbOut = usbEp;
+			}
+			if (usbEp.getDirection() == UsbConstants.USB_DIR_IN && usbEp.getType() == UsbConstants.USB_ENDPOINT_XFER_BULK && usbEp.getAttributes() == 0x02) {
+				usbIn = usbEp;
+			}
+		}
+		
+		//check for changes.
+		if (usbInterupt != null) {
+			requestClose = false;
+			interuptThread = new Thread(new Runnable() {
+				
+				@Override
+				public void run() {
+					int count;
+					byte[] buffer = new byte[4];
+					while (!requestClose) {
+						if ((count = usbConnection.bulkTransfer(usbInterupt, buffer, buffer.length, 250)) >= 0) {
+							if (count == 0) continue;
+							
+							switch (buffer[0]) {
+							case 0x50: //status change
+								if (count < 2) {
+									Log.i("net.egelke.android.eid", "we got no input");
+									continue;
+								}
+								if (count > 2) {
+									Log.w("net.egelke.android.eid", "we only support up to 4 slots, ignoring the rest");
+								}
+								if (handler != null) {
+									notify(buffer, 0);
+									notify(buffer, 1);
+									notify(buffer, 2);
+									notify(buffer, 3);
+								}
+								break;
+							default:
+								Log.w("net.egelke.android.eid", String.format("Unsupported interupt received: %x", buffer[0]));
+								break;
+							}
+						}
+						try {
+							Thread.sleep(250);
+						} catch (InterruptedException e) {
+							Log.w("net.egelke.android.eid", "Sleep interupted", e);
+							break;
+						}
+					}
+					
+				}
+
+				private void notify(byte[] buffer, int slot) {
+					byte stateLoc = (byte) (0x01 << (slot * 2));
+					byte changedLoc = (byte) (0x01 << ((slot * 2) + 1));
+					if ((buffer[1] & changedLoc) == changedLoc) {
+						Message msg;
+						if ((buffer[1] & stateLoc) == stateLoc) {
+							msg = handler.obtainMessage(EidReader.MSG_CARD_INSERTED);
+							//Lets prepare the card before sending the notification
+							lock.lock();
+							try {
+								int count;
+								byte[] powerOnCmd = new byte[] {(byte) 0x62, 0x00, 0x00, 0x00, 0x00, (byte) slot, (byte) sequence, 0x00, 0x00, 0x00};
+								count = usbConnection.bulkTransfer(usbOut, powerOnCmd, powerOnCmd.length, 1000);
+								byte[] powerOnRsp = new byte[255];
+								count = usbConnection.bulkTransfer(usbIn, powerOnRsp, powerOnRsp.length, 5000);
+								if (count >= 10) {
+									if (powerOnRsp[0] != (byte) 0x80) {
+										Log.e("net.egelke.android.eid", String.format("Unsupported PowerOn Response received, Type: %d", powerOnRsp[0]));
+										return;
+									}
+									if (powerOnRsp[6] != (byte) sequence) {
+										Log.e("net.egelke.android.eid", String.format("Received Response of different request"));
+										return;
+									}
+									if ((powerOnRsp[7] & (byte) 0xA0) != 0x00) {
+										Log.e("net.egelke.android.eid", String.format("Power on failed with status %x and error: %x", powerOnRsp[7], powerOnRsp[8]));
+										return;
+									}
+								} else {
+									Log.e("net.egelke.android.eid", String.format("Unsupported PowerOn Response received, Len: %d", count));
+									return;
+								}
+							} finally {
+								sequence = (sequence + 1) % 0xFF;
+								lock.unlock();
+							}
+						} else {
+							msg = handler.obtainMessage(EidReader.MSG_CARD_REMOVED);
+						}
+						msg.arg1 = slot;
+						handler.sendMessage(msg);
+					}
+				}
+			}, "EidInteruptThead");
+			interuptThread.start();
+		}
 	}
 	
 	
 	@Override
 	public void close() throws IOException {
 		handler = null;
-		reader.setOnStateChangeListener(null);
-		reader.close();
+		if (interuptThread != null) {
+			requestClose = true;
+			try {
+				interuptThread.join(1000);
+			} catch (InterruptedException e) {
+				Log.w("net.egelke.android.eid", "Join interupted", e);
+			}
+			interuptThread = null;
+		}
+		if (usbInterface != null) {
+			lock.lock();
+			try {
+				usbConnection.releaseInterface(usbInterface);
+				usbConnection.close();
+			} finally {
+				lock.unlock();
+			}
+		}
 	}
-	
+
 	public byte[] readFileRaw(int slotNum, File file) throws IOException {
 		lock.lock();
 		try {
@@ -177,11 +304,10 @@ public class EidReader implements Closeable {
 		return new CertificateCollection(this, slotNum);
 	}
 	
-	private void selectFile(int slotNum, byte[] cmd) throws ReaderException, Exception {
-		
+	private void selectFile(int slotNum, byte[] cmd) throws Exception {
 		int rspLen;
 		byte[] rsp = new byte[258];
-		rspLen = reader.transmit(slotNum, cmd, cmd.length, rsp, rsp.length);
+		rspLen = transmit(slotNum, cmd, cmd.length, rsp, rsp.length);
 		if (rspLen != 2) {
 			Log.e("net.egelke.android.eid", "APDU select identify file command did not return 2 bytes but: " + rspLen);
 			throw new Exception("Invalid card");
@@ -192,7 +318,7 @@ public class EidReader implements Closeable {
 		}
 	}
 	
-	private byte[] readSelectedFile(int slotNum) throws ReaderException, Exception {
+	private byte[] readSelectedFile(int slotNum) throws Exception {
 		int rspLen;
 		int offset = 0;
 		byte[] rsp = new byte[258];
@@ -201,7 +327,7 @@ public class EidReader implements Closeable {
 		do {
 			cmd[2] = (byte) (offset >> 8);
 			cmd[3] = (byte) (offset & 0xFF);
-			rspLen = reader.transmit(slotNum, cmd, cmd.length, rsp, rsp.length);
+			rspLen = transmit(slotNum, cmd, cmd.length, rsp, rsp.length);
 			if (rspLen < 2) {
 				Log.e("net.egelke.android.eid", "APDU read identify file command did return less then 2 bytes: " + rspLen);
 				throw new Exception("Invalid card");
@@ -227,6 +353,54 @@ public class EidReader implements Closeable {
 
 		Log.d("net.egelke.android.eid", String.format("File read (len %d)", idFileOut.toByteArray().length));
 		return idFileOut.toByteArray();
+	}
+
+	private int transmit(int slot, byte[] cmd, int cmdLen, byte[] rsp, int rspLen) {
+		int count = -1;
+		byte[] usbCmd = new byte[cmdLen + 10];
+		usbCmd[0] = 0x6F; //type
+		usbCmd[1] = (byte) cmdLen; //len
+		usbCmd[2] = 0x00; //we don't support long lenghts
+		usbCmd[3] = 0x00;
+		usbCmd[4] = 0x00;
+		usbCmd[5] = (byte) slot;
+		usbCmd[6] = (byte) sequence;
+		usbCmd[7] = 0x00; //not used
+		usbCmd[8] = 0x00; //Param, not used for T=0
+		usbCmd[9] = 0x00;
+		System.arraycopy(cmd, 0, usbCmd, 10, cmdLen);
+		
+		int loop = 0;
+		byte[] usbRsp = null;
+		while(loop++ < 5 && count == -1) {
+			count = usbConnection.bulkTransfer(usbOut, usbCmd, usbCmd.length, 1000);
+			Log.d("net.egelke.android.eid", "Sent data to card reader: " + count);
+			
+			usbRsp = new byte[rspLen + 50];
+			count = usbConnection.bulkTransfer(usbIn, usbRsp, usbRsp.length, 1000);
+			Log.d("net.egelke.android.eid", "Read data from card reader: " + count);
+
+			if (count >= 10) {
+				if (usbRsp[0] != (byte) 0x80) {
+					Log.e("net.egelke.android.eid", String.format("Unsupported bulk response received, Type: %d", usbRsp[0]));
+					count = -1;
+				}
+				if (usbRsp[6] != (byte) sequence) {
+					Log.e("net.egelke.android.eid", String.format("Received Response of different request"));
+					count = -1;
+				}
+			} else {
+				Log.e("net.egelke.android.eid", String.format("Unsupported bulk Response received, Len: %d", count));
+				count = -1;
+			}
+		}
+		
+		if ((usbRsp[7] & (byte) 0xA0) != 0x00) {
+			Log.e("net.egelke.android.eid", String.format("bulk response failed with status %x and error: %x", usbRsp[7], usbRsp[8]));
+			return -1;
+		}
+		System.arraycopy(usbRsp, 10, rsp, 0, count - 10);
+		return count - 10;
 	}
 
 }

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TableLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_gravity="center" >
+
+    <TableRow
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" >
+
+        <TextView
+            android:layout_margin="@dimen/padding_small"
+            android:gravity="right"
+            android:text="@string/street" />
+
+        <TextView
+            android:id="@+id/street"
+            android:layout_margin="@dimen/padding_small" />
+    </TableRow>
+
+    <TableRow
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" >
+
+        <TextView
+            android:layout_margin="@dimen/padding_small"
+            android:gravity="right"
+            android:text="@string/zip" />
+
+        <TextView
+            android:id="@+id/zip"
+            android:layout_margin="@dimen/padding_small" />
+    </TableRow>
+
+    <TableRow
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" >
+
+        <TextView
+            android:layout_margin="@dimen/padding_small"
+            android:gravity="right"
+            android:text="@string/municipality" />
+
+        <TextView
+            android:id="@+id/municipality"
+            android:layout_margin="@dimen/padding_small" />
+    </TableRow>
+
+</TableLayout>

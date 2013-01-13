@@ -49,35 +49,22 @@ import android.widget.TextView;
 
 public class CertificateFragment extends Fragment {
 	
-	private static class CertArrayAdapter extends ArrayAdapter<X509Certificate> {
-		
+	private static class X509CertificateItem {
 		private static Pattern snExtract = Pattern.compile(".*CN=([^,]*).*");
-
-		private int layoutResource;
-		private int textViewResource;
 		
-		public CertArrayAdapter(Context ctx, int layoutResource, int textViewResource) {
-			super(ctx, layoutResource, textViewResource);
-			
-			this.layoutResource = layoutResource;
-			this.textViewResource = textViewResource;
+		private X509Certificate value;
+		
+		X509CertificateItem(X509Certificate value) {
+			this.value = value;
+		}
+		
+		public X509Certificate getValue() {
+			return value;
 		}
 		
 		@Override
-		public View getView(int position, View convertView, ViewGroup parent) {
-			X509Certificate cert = getItem(position);
-			
-			View item;
-			if (convertView == null) {
-                LayoutInflater vi = (LayoutInflater) getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-                item = vi.inflate(layoutResource, null);
-            } else {
-            	item = convertView;
-            }
-			TextView itemValue = (TextView) item.findViewById(textViewResource);
-			
-			
-		 	String dn = cert.getSubjectX500Principal().getName();
+		public String toString() {
+			String dn = value.getSubjectX500Principal().getName();
 		 	Log.d("net.egelke.android.eid", "Retrieved DN from certificate: " + dn);
 		 	Matcher matcher = snExtract.matcher(dn);
 		 	String cn;
@@ -85,9 +72,7 @@ public class CertificateFragment extends Fragment {
 		 		cn = matcher.group(1);
 		 	else
 		 		cn = dn;
-		 	
-		 	itemValue.setText(cn);
-			return item;
+		 	return cn;
 		}
 	}
 	
@@ -127,7 +112,7 @@ public class CertificateFragment extends Fragment {
 		}
 	}
 	
-	private CertArrayAdapter certsAdapter;
+	private ArrayAdapter<X509CertificateItem> certsAdapter;
 	
 	private ListView certs;
 	
@@ -160,12 +145,12 @@ public class CertificateFragment extends Fragment {
 			layout.setOrientation(LinearLayout.VERTICAL);
 		}
 		
-		certsAdapter = new CertArrayAdapter(getActivity(), R.layout.certificates_item, R.id.certificateItem);
+		certsAdapter = new ArrayAdapter<X509CertificateItem>(getActivity(), R.layout.certificates_item, R.id.certificateItem);
 		if (((MainActivity) getActivity()).certs != null) {
-			certsAdapter.addAll(((MainActivity) getActivity()).certs);
+			for(X509Certificate cert : ((MainActivity) getActivity()).certs) {
+				certsAdapter.add(new X509CertificateItem(cert));
+			}
 		}
-		
-		getResources().getAssets();
 		
 		subject = (TextView) v.findViewById(R.id.certSubject);
 		from = (TextView) v.findViewById(R.id.certValidFrom);
@@ -260,7 +245,9 @@ public class CertificateFragment extends Fragment {
 	}
 	
 	public void addCertificates(Collection<X509Certificate> certs) {
-		certsAdapter.addAll(certs);
+		for(X509Certificate cert : certs) {
+			certsAdapter.add(new X509CertificateItem(cert));
+		}
 		if (!this.isDetached()) {
 			certsAdapter.notifyDataSetChanged();
 		}

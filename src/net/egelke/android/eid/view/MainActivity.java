@@ -34,8 +34,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
-import com.acs.smartcard.Reader;
-
 public class MainActivity extends Activity {
 	
 	private static final String ACTION_USB_PERMISSION = "net.egelke.android.eid.USB_PERMISSION";
@@ -80,7 +78,7 @@ public class MainActivity extends Activity {
 
 	public void handleMessage(Message msg) {
 		switch (msg.what) {
-		case Reader.CARD_PRESENT:
+		case EidReader.MSG_CARD_INSERTED:
 			Toast.makeText(this.getApplicationContext(), "eID card inserted", Toast.LENGTH_SHORT).show();
 			//TODO:rework to cursor loader that used content provider of eID (http://developer.android.com/guide/components/loaders.html)
 			new ReadIdentity().execute(msg.arg1);
@@ -88,7 +86,7 @@ public class MainActivity extends Activity {
 			new ReadPhoto().execute(msg.arg1);
 			new ReadCerts().execute(msg.arg1);
 			break;
-		case Reader.CARD_ABSENT:
+		case EidReader.MSG_CARD_REMOVED:
 			Toast.makeText(this.getApplicationContext(), "eID card removed", Toast.LENGTH_SHORT).show();
 			break;
 		default:
@@ -437,6 +435,7 @@ public class MainActivity extends Activity {
 			try {
 				reader = new EidReader(this, usbDevice);
 				reader.setStateNotifier(handler);
+				reader.open();
 				if (usbMenuItem != null) {
 					usbMenuItem.setIcon(R.drawable.ic_usb_connected);
 				}

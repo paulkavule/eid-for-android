@@ -10,6 +10,7 @@
             android:layout_height="wrap_content"
             android:layout_margin="@dimen/padding_small"
             android:text="-"
+            android:gravity="center"
             android:textAppearance="?android:attr/textAppearanceLarge" />
 
     <TableRow

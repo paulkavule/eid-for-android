@@ -132,8 +132,6 @@ public class CertificateFragment extends Fragment {
 	private CheckBox usage_encipherOnly;
 	private CheckBox usage_decipherOnly;
 	
-	private Button check;
-	
 	private X509Certificate current;
 	
 	@Override
@@ -170,7 +168,7 @@ public class CertificateFragment extends Fragment {
 
 			@Override
 			public void onItemClick(AdapterView<?> parent, View v, int position, long id) {
-				current = (X509Certificate) parent.getItemAtPosition(position);
+				current = ((X509CertificateItem) parent.getItemAtPosition(position)).value;
 				
 				DateFormat df = DateFormat.getDateTimeInstance();
 				String subjectValue = current.getSubjectX500Principal().getName(X500Principal.RFC2253);

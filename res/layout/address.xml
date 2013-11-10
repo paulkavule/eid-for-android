@@ -13,6 +13,7 @@
             android:gravity="right"
             android:text="@string/street" />
 
+       
         <TextView
             android:id="@+id/street"
             android:layout_margin="@dimen/padding_small" />

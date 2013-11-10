@@ -58,6 +58,7 @@
                         android:id="@+id/chipnr"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:singleLine="false"
                         android:layout_margin="@dimen/padding_small" />
         </TableRow>
 

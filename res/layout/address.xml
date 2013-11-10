@@ -16,6 +16,8 @@
        
         <TextView
             android:id="@+id/street"
+            android:maxLines="4"
+            android:singleLine="false"
             android:layout_margin="@dimen/padding_small" />
     </TableRow>
 

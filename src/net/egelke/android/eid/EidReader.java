@@ -254,31 +254,9 @@ public class EidReader implements Closeable {
 	}
 	
 	public Map<Integer, byte[]> readFileTlv(int slotNum, File file) throws IOException {
+		ObjectFactory factory = new ObjectFactory();
 		byte[] bytes = readFileRaw(slotNum, file);
-		
-		int tag;
-		Map<Integer, byte[]> values = new TreeMap<Integer, byte[]>();
-		ByteArrayInputStream idFileIn = new ByteArrayInputStream(bytes);
-		while ((tag = idFileIn.read()) != -1) {
-			int len = 0;
-			int lenByte;
-			do {
-				lenByte = idFileIn.read();
-				len = (len << 7) + (lenByte & 0x7F);
-			} while ((lenByte & 0x80) == 0x80);
-			
-			//In case the file is padded with nulls
-			if (tag == 0 && len == 0) break;
-			
-			byte[] value = new byte[len];
-			int read = 0;
-			while (read < len) {
-				read += idFileIn.read(value, read, len - read);
-			}
-			Log.d("net.egelke.android.eid", String.format("Added tag %d (len %d) to %s", tag, value.length, file.name()));
-			values.put(tag, value);
-		}
-		return values;
+		return factory.createTvMap(bytes);
 	}
 	
 	public Identity readFileIdentity(int slotNum) throws IOException {

@@ -12,6 +12,8 @@ import android.widget.TextView;
 
 public class CardFragment extends Fragment {
 	
+	private Identity id;
+	
 	private TextView cardNr;
 	
 	private TextView issuePlace;
@@ -24,6 +26,8 @@ public class CardFragment extends Fragment {
 	
 	@Override
 	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+		this.setRetainInstance(true);
+		
 		View v = inflater.inflate(R.layout.card, container, false);
 		
 		cardNr = (TextView) v.findViewById(R.id.cardnr);
@@ -38,19 +42,29 @@ public class CardFragment extends Fragment {
 	@Override
 	public void onResume() {
 		super.onResume();
-		updateId();
+		update();
 	}
 	
-	public void updateId() {
-		if (((MainActivity) getActivity()).id != null) {
+	public void setId(Identity id) {
+		this.id = id;
+		if (!isDetached()) update();
+	}
+	
+	private void update() {
+		if (this.id != null) {
 			DateFormat df = DateFormat.getDateInstance();
-			Identity result = ((MainActivity) getActivity()).id;
 			
-			cardNr.setText(result.getCardNumber());
-			issuePlace.setText(result.getCardDeliveryMunicipality());
-			chipNr.setText(result.getChipNumber());
-			validFrom.setText(df.format(result.getCardValidity().getBegin().getTime()));
-			validTo.setText(df.format(result.getCardValidity().getEnd().getTime()));
+			cardNr.setText(id.getCardNumber());
+			issuePlace.setText(id.getCardDeliveryMunicipality());
+			chipNr.setText(id.getChipNumber());
+			validFrom.setText(df.format(id.getCardValidity().getBegin().getTime()));
+			validTo.setText(df.format(id.getCardValidity().getEnd().getTime()));
+		} else {
+			cardNr.setText("");
+			issuePlace.setText("");
+			chipNr.setText("");
+			validFrom.setText("");
+			validTo.setText("");
 		}
 	}
 

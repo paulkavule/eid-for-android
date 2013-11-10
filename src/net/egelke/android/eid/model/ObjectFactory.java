@@ -1,11 +1,15 @@
 package net.egelke.android.eid.model;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.EnumSet;
 import java.util.GregorianCalendar;
 import java.util.Map;
+import java.util.TreeMap;
 
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
@@ -21,6 +25,35 @@ public class ObjectFactory {
 
 	private static String[] GENDER_MALE = { "M" };
 	private static String[] GENDER_FEMALE = { "F", "V", "W" };
+	
+	public Map<Integer, byte[]> createTvMap(byte[] bytes) throws IOException {
+		return createTvMap(new ByteArrayInputStream(bytes));
+	}
+	
+	public Map<Integer, byte[]> createTvMap(InputStream steam) throws IOException {
+		int tag;
+		Map<Integer, byte[]> values = new TreeMap<Integer, byte[]>();
+		while ((tag = steam.read()) != -1) {
+			int len = 0;
+			int lenByte;
+			do {
+				lenByte = steam.read();
+				len = (len << 7) + (lenByte & 0x7F);
+			} while ((lenByte & 0x80) == 0x80);
+			
+			//In case the file is padded with nulls
+			if (tag == 0 && len == 0) break;
+			
+			byte[] value = new byte[len];
+			int read = 0;
+			while (read < len) {
+				read += steam.read(value, read, len - read);
+			}
+			Log.d("net.egelke.android.eid", String.format("Added tag %d (len %d)", tag, value.length));
+			values.put(tag, value);
+		}
+		return values;
+	}
 
 	public Identity createIdentity(Map<Integer, byte[]> tvMap) {
 		Identity id = new Identity();
@@ -168,6 +201,8 @@ public class ObjectFactory {
 
 	private Calendar toCalendar(final byte[] value) {
 		final String dateStr = new String(value);
+		Log.d("net.egelke.android.eid", String.format("Converting %s to calendar", dateStr));
+		
 		final int day = Integer.parseInt(dateStr.substring(0, 2));
 		final int month = Integer.parseInt(dateStr.substring(3, 5));
 		final int year = Integer.parseInt(dateStr.substring(6));

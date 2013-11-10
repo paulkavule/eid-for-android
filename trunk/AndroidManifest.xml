@@ -32,6 +32,10 @@
                 android:resource="@xml/device_filter" />
             
         </activity>
+        <activity
+            android:name=".SettingsActivity"
+            android:label="@string/app_settings" >
+        </activity>
     </application>
 
 </manifest>

@@ -3,47 +3,25 @@ package net.egelke.android.eid.view;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
-import java.security.cert.CertPath;
-import java.security.cert.CertPathBuilder;
-import java.security.cert.CertPathValidator;
-import java.security.cert.CertPathValidatorException;
-import java.security.cert.CertStore;
-import java.security.cert.CertificateFactory;
-import java.security.cert.CollectionCertStoreParameters;
-import java.security.cert.PKIXParameters;
-import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
 import java.text.DateFormat;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.security.auth.x500.X500Principal;
 
 import android.app.Fragment;
-import android.content.Context;
-import android.content.res.AssetManager;
-import android.content.res.Configuration;
-import android.content.res.Resources;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.CheckBox;
-import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -76,45 +54,11 @@ public class CertificateFragment extends Fragment {
 		}
 	}
 	
-	private class Check extends AsyncTask<Void, Void, Boolean> {
+	private List<X509CertificateItem> certs = new ArrayList<X509CertificateItem>();
 	
-		
-		@Override
-		protected Boolean doInBackground(Void... params) {
-			try {
-				CertificateFactory cf = CertificateFactory.getInstance("X.509");
-				CertPath path = cf.generateCertPath(Collections.singletonList(current));
-				
-				CertStore store = CertStore.getInstance("Collection", new CollectionCertStoreParameters(((MainActivity) getActivity()).certs));
-				
-				CertPathValidator validator = CertPathValidator.getInstance("PKIX");
-				Set<TrustAnchor> roots = new HashSet<TrustAnchor>();
-				roots.add(new TrustAnchor((X509Certificate) cf.generateCertificate(getResources().getAssets().open("root.crt")), null));
-				roots.add(new TrustAnchor((X509Certificate) cf.generateCertificate(getResources().getAssets().open("root2.crt")), null));
-				PKIXParameters validateParams = new PKIXParameters(roots);
-				validateParams.setCertStores(Collections.singletonList(store));
-				validateParams.setRevocationEnabled(true);
-				
-				validator.validate(path, validateParams);
-				return true;
-			} catch (CertPathValidatorException e) {
-				Log.i("net.egelke.android.eid", "certificate invalid", e);
-				return false;
-			} catch (Exception e) {
-				Log.e("net.egelke.android.eid", "failed to check the certificate", e);
-				return false;
-			}
-		}
-		
-		@Override
-		protected void onPostExecute(Boolean result) {
-			
-		}
-	}
+	private ArrayAdapter<X509CertificateItem> certListAdapter;
 	
-	private ArrayAdapter<X509CertificateItem> certsAdapter;
-	
-	private ListView certs;
+	private ListView certList;
 	
 	private TextView subject;
 	
@@ -138,18 +82,7 @@ public class CertificateFragment extends Fragment {
 	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 		View v = inflater.inflate(R.layout.certificates, container, false);
 		
-		if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
-			LinearLayout layout = (LinearLayout) v.findViewById(R.id.certLayout);
-			layout.setOrientation(LinearLayout.VERTICAL);
-		}
-		
-		certsAdapter = new ArrayAdapter<X509CertificateItem>(getActivity(), R.layout.certificates_item, R.id.certificateItem);
-		if (((MainActivity) getActivity()).certs != null) {
-			for(X509Certificate cert : ((MainActivity) getActivity()).certs) {
-				certsAdapter.add(new X509CertificateItem(cert));
-			}
-		}
-		
+		certListAdapter = new ArrayAdapter<X509CertificateItem>(getActivity(), R.layout.certificates_item, R.id.certificateItem, certs);
 		subject = (TextView) v.findViewById(R.id.certSubject);
 		from = (TextView) v.findViewById(R.id.certValidFrom);
 		to = (TextView) v.findViewById(R.id.certValidTo);
@@ -162,9 +95,9 @@ public class CertificateFragment extends Fragment {
 		usage_cRLSign = (CheckBox) v.findViewById(R.id.usage_cRLSign);
 		usage_encipherOnly = (CheckBox) v.findViewById(R.id.usage_encipherOnly);
 		usage_decipherOnly = (CheckBox) v.findViewById(R.id.usage_decipherOnly);
-		certs = (ListView) v.findViewById(R.id.certificates);
-		certs.setAdapter(certsAdapter);
-		certs.setOnItemClickListener(new OnItemClickListener() {
+		certList = (ListView) v.findViewById(R.id.certificates);
+		certList.setAdapter(certListAdapter);
+		certList.setOnItemClickListener(new OnItemClickListener() {
 
 			@Override
 			public void onItemClick(AdapterView<?> parent, View v, int position, long id) {
@@ -222,32 +155,20 @@ public class CertificateFragment extends Fragment {
 			}
 		});
 		
-		/*
-		check = (Button) v.findViewById(R.id.verifyOcsp);
-		check.setOnClickListener(new OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				new Check().execute();
-			}
-		});
-		*/
-		
 		return v;
 	}
 	
 	public void clearCertificates() {
-		certsAdapter.clear();
+		certs.clear();
 		if (!this.isDetached()) {
-			certsAdapter.notifyDataSetChanged();
+			certListAdapter.notifyDataSetChanged();
 		}
 	}
 	
-	public void addCertificates(Collection<X509Certificate> certs) {
-		for(X509Certificate cert : certs) {
-			certsAdapter.add(new X509CertificateItem(cert));
-		}
+	public void addCertificate(X509Certificate cert) {
+		certs.add(new X509CertificateItem(cert));
 		if (!this.isDetached()) {
-			certsAdapter.notifyDataSetChanged();
+			certListAdapter.notifyDataSetChanged();
 		}
 	}
 

@@ -1,17 +1,17 @@
 package net.egelke.android.eid.view;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.ref.WeakReference;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
 import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 
 import net.egelke.android.eid.EidReader;
 import net.egelke.android.eid.model.Address;
 import net.egelke.android.eid.model.Identity;
+import net.egelke.android.eid.model.ObjectFactory;
 import android.app.ActionBar;
 import android.app.ActionBar.Tab;
 import android.app.Activity;
@@ -22,6 +22,10 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.graphics.drawable.Drawable;
+import android.hardware.usb.UsbConstants;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.AsyncTask;
@@ -29,12 +33,14 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.StrictMode;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity
+	implements OnSharedPreferenceChangeListener {
 	
 	private static final String ACTION_USB_PERMISSION = "net.egelke.android.eid.USB_PERMISSION";
 
@@ -67,24 +73,12 @@ public class MainActivity extends Activity {
 	private MenuItem usbMenuItem;
 	
 	private boolean userConnected;
-	
-	Identity id;
-	
-	Address address;
-	
-	byte[] photo;
-	
-	List<X509Certificate> certs;
 
 	public void handleMessage(Message msg) {
 		switch (msg.what) {
 		case EidReader.MSG_CARD_INSERTED:
 			Toast.makeText(this.getApplicationContext(), "eID card inserted", Toast.LENGTH_SHORT).show();
-			//TODO:rework to cursor loader that used content provider of eID (http://developer.android.com/guide/components/loaders.html)
-			new ReadIdentity().execute(msg.arg1);
-			new ReadAddress().execute(msg.arg1);
-			new ReadPhoto().execute(msg.arg1);
-			new ReadCerts().execute(msg.arg1);
+			new ReadEid(this).execute(msg.arg1);
 			break;
 		case EidReader.MSG_CARD_REMOVED:
 			Toast.makeText(this.getApplicationContext(), "eID card removed", Toast.LENGTH_SHORT).show();
@@ -93,17 +87,6 @@ public class MainActivity extends Activity {
 			Toast.makeText(this.getApplicationContext(), "Unknown status change", Toast.LENGTH_SHORT).show();
 			break;
 		}
-	}
-	
-	private static class State {
-		Identity id;
-		
-		Address address;
-		
-		byte[] photo;
-		
-		List<X509Certificate> certs;
-		
 	}
 	
 	private class UsbDeviceIntentReceiver extends BroadcastReceiver {
@@ -132,97 +115,23 @@ public class MainActivity extends Activity {
 	    }
 	}
 	
-	private class ReadIdentity extends AsyncTask<Integer, Void, Identity> {
-
-		@Override
-		protected Identity doInBackground(Integer... params) {
-			try {
-				return reader.readFileIdentity(params[0]);
-			} catch (Exception e) {
-				Log.w("net.egelke.android.eid", "Reading the identify file failed", e);
-				return null;
-			}
-		}
-
-		@Override
-		protected void onPostExecute(Identity result) {
-			id = result;
-			
-			IdentityFragment idFrag = (IdentityFragment) getFragmentManager().findFragmentByTag("identity");
-			if (idFrag != null && !idFrag.isDetached()) {
-				idFrag.updateId();
-			}
-			CardFragment cardFrag = (CardFragment) getFragmentManager().findFragmentByTag("card");
-			if (cardFrag != null && !cardFrag.isDetached()) {
-				cardFrag.updateId();
-			}
-		}
-	}
-
-	private class ReadAddress extends AsyncTask<Integer, Void, Address> {
-
-		@Override
-		protected Address doInBackground(Integer... params) {
-			try {
-				return reader.readFileAddress(params[0]);
-			} catch (Exception e) {
-				Log.w("net.egelke.android.eid", "Reading the identify file failed", e);
-				return null;
-			}
-		}
-
-		@Override
-		protected void onPostExecute(Address result) {
-			address = result;
-			
-			IdentityFragment idFrag = (IdentityFragment) getFragmentManager().findFragmentByTag("identity");
-			if (idFrag != null && !idFrag.isDetached()) {
-				idFrag.updateAddress();
-			}
-		}
-	}
-
-	private class ReadPhoto extends AsyncTask<Integer, Void, byte[]> {
-
-		@Override
-		protected byte[] doInBackground(Integer... params) {
-			try {
-				return reader.readFileRaw(params[0], EidReader.File.PHOTO);
-			} catch (Exception e) {
-				Log.w("net.egelke.android.eid", "Reading the photo file failed", e);
-				return null;
-			}
-		}
-
-		@Override
-		protected void onPostExecute(byte[] result) {
-			photo = result;
-			
-			IdentityFragment idFrag = (IdentityFragment) getFragmentManager().findFragmentByTag("identity");
-			if (idFrag != null && !idFrag.isDetached()) {
-				idFrag.updatePhoto();
-			}
-		}
-	}
-	
-	private class ReadCerts extends AsyncTask<Integer, X509Certificate, Void> {
+	private class ReadEid extends AsyncTask<Integer, Object, Void> {
 		
-		@Override
-		protected Void doInBackground(Integer... params) {
-			try {
-				for(X509Certificate cert : reader.readFileCerts(params[0])) {
-					this.publishProgress(cert); //we display it immediately
-				}
-				return null;
-			} catch (Exception e) {
-				Log.w("net.egelke.android.eid", "Reading the photo file failed", e);
-				return null;
-			}
+		private final Context context;
+		private boolean demo;
+		
+		
+		public ReadEid(Context context)
+		{
+			this.context = context;
 		}
 		
 		@Override
 		protected void onPreExecute() {
-			certs = new LinkedList<X509Certificate>();
+			SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(context);
+			demo = sharedPref.getBoolean("pref_demo", false);
+			
+			
 			CertificateFragment certFrag = (CertificateFragment) getFragmentManager().findFragmentByTag("certificate");
 			if (certFrag != null ) {
 				certFrag.clearCertificates();
@@ -230,15 +139,94 @@ public class MainActivity extends Activity {
 		}
 		
 		@Override
-		protected void onProgressUpdate(X509Certificate... values) {
-			certs.add(values[0]); //we keep it as "cache"
-			CertificateFragment certFrag = (CertificateFragment) getFragmentManager().findFragmentByTag("certificate");
-			if (certFrag != null ) {
-				certFrag.addCertificates(Arrays.asList(values));
+		protected Void doInBackground(Integer... params) {
+			try {
+				if (demo) {
+					Log.w("net.egelke.android.eid", "Getting the demo eID info");
+					ObjectFactory factory = new ObjectFactory();
+					
+					Map<Integer, byte[]> identifyMap = factory.createTvMap(getAssets().open("Alice_Identity.tlv"));
+					this.publishProgress(factory.createIdentity(identifyMap));
+					
+					Map<Integer, byte[]> addressMap = factory.createTvMap(getAssets().open("Alice_Address.tlv"));
+					this.publishProgress(factory.createAddress(addressMap));
+					
+					InputStream photoStream = getAssets().open("Alice_Photo.jpg");
+					this.publishProgress(Drawable.createFromStream(photoStream, "idPic"));
+					
+					InputStream certStream;
+					CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
+					
+					certStream = getAssets().open("Alice_Root.crt");
+					this.publishProgress(certFactory.generateCertificate(certStream));
+					
+					certStream = getAssets().open("Alice_RRN.crt");
+					this.publishProgress(certFactory.generateCertificate(certStream));
+					
+					certStream = getAssets().open("Alice_CA.crt");
+					this.publishProgress(certFactory.generateCertificate(certStream));
+					
+					certStream = getAssets().open("Alice_Authentification.crt");
+					this.publishProgress(certFactory.generateCertificate(certStream));
+					
+					certStream = getAssets().open("Alice_Signing.crt");
+					this.publishProgress(certFactory.generateCertificate(certStream));
+				}
+				else 
+				{
+					Log.i("net.egelke.android.eid", "Getting the eID info");
+					this.publishProgress(reader.readFileIdentity(params[0]));
+					this.publishProgress(reader.readFileAddress(params[0]));
+					this.publishProgress(reader.readFilePhoto(params[0]));
+					for(X509Certificate cert : reader.readFileCerts(params[0])) {
+						this.publishProgress(cert); //we display it immediately
+					}
+				}
+				return null;
+			} catch (Exception e) {
+				Log.e("net.egelke.android.eid", "Reading the identify file failed", e);
+				return null;
 			}
 		}
-	}
+		
 
+		
+		@Override
+		protected void onProgressUpdate(Object... values) {
+			Log.d("net.egelke.android.eid", String.format("Displaying %s", values[0].getClass().toString()));
+			if (values[0] instanceof Identity) {
+				PersonFragment personFrag = (PersonFragment) getFragmentManager().findFragmentByTag("person");
+				if (personFrag != null) {
+					personFrag.setId((Identity) values[0]);
+				}
+				CardFragment cardFrag = (CardFragment) getFragmentManager().findFragmentByTag("card");
+				if (cardFrag != null) {
+					cardFrag.setId((Identity) values[0]);
+				}
+			} 
+			else if (values[0] instanceof Address) {
+				AddressFragment addressFrag = (AddressFragment) getFragmentManager().findFragmentByTag("address");
+				if (addressFrag != null) {
+					addressFrag.setAddress((Address) values[0]);
+				}
+			}
+			else if (values[0] instanceof Drawable) {
+				PhotoFragment photoFragment = (PhotoFragment) getFragmentManager().findFragmentByTag("photo");
+				if (photoFragment != null) {
+					photoFragment.setPhoto((Drawable) values[0]);
+				}
+			}
+			else if (values[0] instanceof X509Certificate)
+			{
+				CertificateFragment certFrag = (CertificateFragment) getFragmentManager().findFragmentByTag("certificate");
+				if (certFrag != null) {
+					certFrag.addCertificate((X509Certificate) values[0]);
+				}
+			}
+		}
+		
+	}
+	
 	public static class TabListener implements ActionBar.TabListener {
 		private final Activity mActivity;
         private final String mTag;
@@ -250,25 +238,20 @@ public class MainActivity extends Activity {
             mActivity = activity;
             mTag = tag;
             mClass = clz;
-
-            // Check to see if we already have a fragment for this tab, probably
-            // from a previously saved state.  If so, deactivate it, because our
-            // initial state is that a tab isn't shown.
+            
+            //eager load the tab, detached.
+            FragmentTransaction ft = mActivity.getFragmentManager().beginTransaction();
             mFragment = mActivity.getFragmentManager().findFragmentByTag(mTag);
-            if (mFragment != null && !mFragment.isDetached()) {
-                FragmentTransaction ft = mActivity.getFragmentManager().beginTransaction();
-                ft.detach(mFragment);
-                ft.commit();
+            if (mFragment == null) {
+            	mFragment = Fragment.instantiate(mActivity, mClass.getName(), null);
+                ft.add(android.R.id.content, mFragment, mTag);
             }
+            if (!mFragment.isDetached()) ft.detach(mFragment);
+            ft.commit();
         }
 
         public void onTabSelected(Tab tab, FragmentTransaction ft) {
-            if (mFragment == null) {
-                mFragment = Fragment.instantiate(mActivity, mClass.getName(), null);
-                ft.add(android.R.id.content, mFragment, mTag);
-            } else {
-                ft.attach(mFragment);
-            }
+            ft.attach(mFragment);
         }
 
         public void onTabUnselected(Tab tab, FragmentTransaction ft) {
@@ -302,18 +285,11 @@ public class MainActivity extends Activity {
 		bar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
 		bar.setDisplayOptions(0, ActionBar.DISPLAY_SHOW_TITLE);
 
-		bar.addTab(bar.newTab().setText(R.string.identity).setTabListener(new TabListener(this, "identity", IdentityFragment.class)));
+		bar.addTab(bar.newTab().setText(R.string.person).setTabListener(new TabListener(this, "person", PersonFragment.class)));
+		bar.addTab(bar.newTab().setText(R.string.photo).setTabListener(new TabListener(this, "photo", PhotoFragment.class)));
+		bar.addTab(bar.newTab().setText(R.string.address).setTabListener(new TabListener(this, "address", AddressFragment.class)));
 		bar.addTab(bar.newTab().setText(R.string.card).setTabListener(new TabListener(this, "card", CardFragment.class)));
 		bar.addTab(bar.newTab().setText(R.string.certificates).setTabListener(new TabListener(this, "certificate", CertificateFragment.class)));
-		
-		//In case of a config change, restore the state
-		State state = (State) getLastNonConfigurationInstance();
-	    if (state != null) {
-	        this.id = state.id;
-	        this.address = state.address;
-	        this.photo = state.photo;
-	        this.certs = state.certs;
-	    }
 		
 	    //Restore the state in other cases
 		if (savedInstanceState != null) {
@@ -357,29 +333,26 @@ public class MainActivity extends Activity {
     }
 	
 	@Override
-	public Object onRetainNonConfigurationInstance() {
-		State state = new State();
-		state.id = this.id;
-		state.address = this.address;
-		state.photo = this.photo;
-		state.certs = this.certs;
-		
-		return state;
-	}
-	
-	@Override
 	protected void onResume() {
 		super.onResume();
-		
 		Log.d("net.egelke.android.eid", "resuming main activity:" + this.hashCode());
-		if (userConnected) {
-			connect();
+		
+		this.getPreferences(MODE_PRIVATE).registerOnSharedPreferenceChangeListener(this);
+		
+		SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
+		if (sharedPref.getBoolean("pref_demo", false)) {
+			new ReadEid(this).execute(-1);
+		} else {
+			if (userConnected) {
+				connect();
+			}
 		}
 	}
 	
 	@Override
 	protected void onPause() {
 		Log.d("net.egelke.android.eid", "pausing main activity:" + this.hashCode());
+		this.getPreferences(MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(this);
 		
 		diconnect();	
 		super.onPause();
@@ -406,7 +379,7 @@ public class MainActivity extends Activity {
 		Iterator<UsbDevice> deviceIterator = deviceList.values().iterator();
 		while(deviceIterator.hasNext()){
 		    UsbDevice device = deviceIterator.next();
-		    if (device.getVendorId() == 1839) {
+		    if (device.getDeviceClass() == UsbConstants.USB_CLASS_CSCID) {
 		    	//we request permission for all, see what it gets ;-)
 		    	manager.requestPermission(device, PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0));
 		    	found = true;
@@ -461,7 +434,11 @@ public class MainActivity extends Activity {
 				reader = null;
 			}
 			if (usbMenuItem != null) {
-				usbMenuItem.setIcon(R.drawable.ic_usb_attached);
+				if (usbDevice != null) {
+					usbMenuItem.setIcon(R.drawable.ic_usb_attached);
+				} else {
+					usbMenuItem.setIcon(R.drawable.ic_usb_detached);
+				}
 			}
 		} catch (IOException e) {
 			Log.w("net.egelke.android.eid", "could not close the eID reader", e);
@@ -488,8 +465,21 @@ public class MainActivity extends Activity {
 				attach();
 			}
 			return true;
+		case R.id.menu_settings:
+			Log.d("net.egelke.android.eid", "show menu");
+			Intent intent = new Intent();
+			intent.setClass(this, SettingsActivity.class);
+			startActivity(intent);
 		default:
 			return super.onOptionsItemSelected(item);
+		}
+	}
+
+	@Override
+	public void onSharedPreferenceChanged(SharedPreferences sharedPreferences,
+			String key) {
+		if (key.equals("pref_demo")) {
+			new ReadEid(this).execute(-1);
 		}
 	}
 }

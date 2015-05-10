@@ -1,0 +1,1 @@
+Allows to access Belgium eID from Android 3.1 devices with a CCID reader from ACS (Advanced Card Systems Ltd).  It does NOT require a rooted device.
